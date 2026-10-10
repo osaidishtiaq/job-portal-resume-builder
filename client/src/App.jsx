@@ -5,24 +5,36 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_BASE_URL = 'http://localhost:5000';
-
   const checkHealth = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/health`);
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status}`);
+
+    // Endpoints to try: relative URL (via Vite proxy), then direct IPv4, then direct localhost
+    const endpoints = [
+      '/api/health',
+      'http://127.0.0.1:5000/api/health',
+      'http://localhost:5000/api/health'
+    ];
+
+    let lastErr = null;
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, { credentials: 'omit' });
+        if (response.ok) {
+          const data = await response.json();
+          setHealthData(data);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        lastErr = err;
       }
-      const data = await response.json();
-      setHealthData(data);
-    } catch (err) {
-      setError(err.message || 'Failed to communicate with Express backend');
-      setHealthData(null);
-    } finally {
-      setLoading(false);
     }
+
+    setError(lastErr ? lastErr.message : 'Unable to connect to backend server');
+    setHealthData(null);
+    setLoading(false);
   };
 
   useEffect(() => {

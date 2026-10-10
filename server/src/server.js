@@ -10,9 +10,26 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// Middleware
+// Allowed origins for CORS (supports localhost, 127.0.0.1, and .env CLIENT_URL)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  CLIENT_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: CLIENT_URL,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // Allow any local origin in development
+    if (process.env.NODE_ENV !== 'production' && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+      return callback(null, true);
+    }
+    return callback(new Error('Blocked by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -52,7 +69,7 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`=================================`);
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
