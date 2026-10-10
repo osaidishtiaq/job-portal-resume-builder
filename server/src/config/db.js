@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(
-      process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/job_portal',
+      process.env.MONGO_URI,
       {
-        serverSelectionTimeoutMS: 3000 // Timeout after 3 seconds if MongoDB is offline
+        serverSelectionTimeoutMS: 5000
       }
     );
     console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
