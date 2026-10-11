@@ -130,4 +130,77 @@ const register = async (req, res, next) => {
   }
 };
 
-module.exports = { register };
+/**
+ * @desc    Authenticate user and login
+ * @route   POST /api/auth/login
+ * @access  Public
+ */
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Validate required fields
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Email is required'
+      });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Password is required'
+      });
+    }
+
+    // 2. Normalize email and validate format
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 100) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // 3. Find user and explicitly select password field
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+
+    // 4. Return generic 401 if user does not exist
+    if (!user) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password'
+      });
+    }
+
+    // 5. Compare submitted password with hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password'
+      });
+    }
+
+    // 6. Return safe user data without password or hash
+    return res.status(200).json({
+      status: 'success',
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login };
