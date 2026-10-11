@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/db');
 const healthRoutes = require('./routes/healthRoutes');
+const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -44,6 +45,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // API Routes
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
 
 // Root Welcome Endpoint
 app.get('/', (req, res) => {
