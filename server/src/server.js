@@ -42,9 +42,6 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Connect to MongoDB
-connectDB();
-
 // API Routes
 app.use('/api', healthRoutes);
 
@@ -69,9 +66,21 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`=================================`);
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`=================================`);
-});
+const startServer = async () => {
+  try {
+    // Ensure database connection is established before listening for requests
+    await connectDB();
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`=================================`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`=================================`);
+    });
+  } catch (error) {
+    console.error(`[Server Startup Error] Could not start server: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+startServer();
