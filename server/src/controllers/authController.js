@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 /**
@@ -184,10 +185,65 @@ const login = async (req, res, next) => {
       });
     }
 
-    // 6. Return safe user data without password or hash
+    // 6. Sign JWT with user ID as subject (sub claim)
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[JWT Error] JWT_SECRET is not configured.');
+      return res.status(500).json({
+        status: 'error',
+        message: 'Authentication configuration error.'
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        sub: user._id.toString(),
+        role: user.role
+      },
+      secret,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      }
+    );
+
+    // 7. Return safe user data with token (never return password or hash)
     return res.status(200).json({
       status: 'success',
       message: 'Login successful',
+      data: {
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get currently authenticated user's profile
+ * @route   GET /api/auth/me
+ * @access  Private
+ */
+const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
       data: {
         user: {
           id: user._id,
@@ -203,4 +259,4 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login };
+module.exports = { register, login, getMe };
