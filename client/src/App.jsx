@@ -42,6 +42,16 @@ function MainApp() {
     }
   }
 
+  // Synchronize browser URL hash with derived active view
+  useEffect(() => {
+    if (loading) return;
+
+    const targetHash = `#${activeView}`;
+    if (window.location.hash !== targetHash) {
+      window.location.hash = activeView;
+    }
+  }, [loading, activeView]);
+
   if (loading) {
     return (
       <div className="container app-container">

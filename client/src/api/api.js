@@ -52,8 +52,11 @@ async function request(endpoint, options = {}) {
 
   // Automatically attach Bearer token if available
   const token = tokenStorage.get();
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`;
+  const hasAuthHeader = Object.keys(headers).some(
+    (key) => key.toLowerCase() === 'authorization'
+  );
+  if (token && typeof token === 'string' && token.trim() && !hasAuthHeader) {
+    headers.Authorization = `Bearer ${token.trim()}`;
   }
 
   let response;
@@ -80,6 +83,16 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
+    // If a protected request (token provided and not explicit login) is rejected with 401, invalidate session
+    if (response.status === 401 && token && !endpoint.includes('/auth/login')) {
+      tokenStorage.remove();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:expired', {
+          detail: { message: data?.message || 'Session expired. Please log in again.' }
+        }));
+      }
+    }
+
     const errorMsg = data?.message || `Request failed with status ${response.status}`;
     const error = new Error(errorMsg);
     error.status = response.status;

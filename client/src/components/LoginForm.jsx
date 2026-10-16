@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 
 export default function LoginForm({ onSwitchToRegister }) {
-  const { login } = useAuth();
+  const { login, authError, clearError } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -14,15 +14,22 @@ export default function LoginForm({ onSwitchToRegister }) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errorMessage) setErrorMessage(null);
+    if (authError && clearError) clearError();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
+    if (clearError) clearError();
 
     const emailTrimmed = formData.email.trim();
     if (!emailTrimmed) {
       setErrorMessage('Please enter your email address.');
+      return;
+    }
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
     if (!formData.password) {
@@ -41,6 +48,8 @@ export default function LoginForm({ onSwitchToRegister }) {
     }
   };
 
+  const displayError = errorMessage || authError;
+
   return (
     <div className="card form-card">
       <div className="form-header">
@@ -49,10 +58,10 @@ export default function LoginForm({ onSwitchToRegister }) {
         <p className="subtitle">Sign in to your account to continue</p>
       </div>
 
-      {errorMessage && (
+      {displayError && (
         <div className="alert alert-error" role="alert">
           <span className="alert-icon">⚠️</span>
-          <span>{errorMessage}</span>
+          <span>{displayError}</span>
         </div>
       )}
 

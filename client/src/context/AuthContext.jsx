@@ -26,12 +26,20 @@ export function AuthProvider({ children }) {
           setToken(savedToken);
         }
       } catch (err) {
-        // Token is invalid or expired
         console.warn('Session restoration failed:', err.message);
-        tokenStorage.remove();
-        if (isMounted) {
-          setToken(null);
-          setUser(null);
+        if (err.status === 401 || err.status === 403) {
+          // Token is invalid or expired
+          tokenStorage.remove();
+          if (isMounted) {
+            setToken(null);
+            setUser(null);
+          }
+        } else {
+          // Network error or server offline: preserve token in storage but reset user state
+          if (isMounted) {
+            setUser(null);
+            setAuthError('Unable to connect to server to verify session. Check network connection.');
+          }
         }
       } finally {
         if (isMounted) {
@@ -42,8 +50,21 @@ export function AuthProvider({ children }) {
 
     restoreSession();
 
+    // Listen for session expiration events dispatched by api.js on 401 responses
+    const handleAuthExpired = (event) => {
+      tokenStorage.remove();
+      if (isMounted) {
+        setToken(null);
+        setUser(null);
+        setAuthError(event?.detail?.message || 'Your session has expired. Please sign in again.');
+      }
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('auth:expired', handleAuthExpired);
     };
   }, []);
 
@@ -71,9 +92,11 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async ({ name, email, password, role }) => {
     setAuthError(null);
+    let registrationCreated = false;
     try {
       // 1. Create account on backend
       const regResponse = await api.auth.register({ name, email, password, role });
+      registrationCreated = true;
 
       // 2. Obtain JWT by authenticating with the created credentials
       if (regResponse?.data?.token) {
@@ -98,6 +121,11 @@ export function AuthProvider({ children }) {
 
       return loginResponse.data;
     } catch (err) {
+      if (registrationCreated) {
+        const errorMsg = `Account created successfully, but auto sign-in failed (${err.message}). Please sign in manually.`;
+        setAuthError(errorMsg);
+        throw new Error(errorMsg);
+      }
       setAuthError(err.message || 'Registration failed');
       throw err;
     }

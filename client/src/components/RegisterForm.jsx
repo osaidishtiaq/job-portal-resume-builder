@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 
 export default function RegisterForm({ onSwitchToLogin }) {
-  const { register } = useAuth();
+  const { register, authError, clearError } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,15 +16,18 @@ export default function RegisterForm({ onSwitchToLogin }) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errorMessage) setErrorMessage(null);
+    if (authError && clearError) clearError();
   };
 
   const handleRoleSelect = (role) => {
     setFormData((prev) => ({ ...prev, role }));
+    if (authError && clearError) clearError();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
+    if (clearError) clearError();
 
     const nameTrimmed = formData.name.trim();
     const emailTrimmed = formData.email.trim();
@@ -72,6 +75,8 @@ export default function RegisterForm({ onSwitchToLogin }) {
     }
   };
 
+  const displayError = errorMessage || authError;
+
   return (
     <div className="card form-card">
       <div className="form-header">
@@ -80,10 +85,10 @@ export default function RegisterForm({ onSwitchToLogin }) {
         <p className="subtitle">Join as a Candidate or an Employer</p>
       </div>
 
-      {errorMessage && (
+      {displayError && (
         <div className="alert alert-error" role="alert">
           <span className="alert-icon">⚠️</span>
-          <span>{errorMessage}</span>
+          <span>{displayError}</span>
         </div>
       )}
 
