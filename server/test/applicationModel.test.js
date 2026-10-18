@@ -100,4 +100,17 @@ describe('Application Model Schema', () => {
       'Expected unique compound index on { candidate: 1, job: 1 } to prevent duplicate applications'
     );
   });
+
+  it('defines a compound index on { candidate: 1, createdAt: -1, _id: -1 } for listing applications', () => {
+    const indexes = Application.schema.indexes();
+    const listIndex = indexes.find(
+      ([fields]) =>
+        fields.candidate === 1 && fields.createdAt === -1 && fields._id === -1
+    );
+
+    assert.ok(
+      listIndex,
+      'Expected compound index on { candidate: 1, createdAt: -1, _id: -1 } for efficient sorting'
+    );
+  });
 });

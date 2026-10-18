@@ -101,6 +101,100 @@ const applyToJob = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get all job applications submitted by the authenticated candidate
+ * @route   GET /api/applications/my
+ * @access  Private (Candidates only)
+ */
+const getMyApplications = async (req, res, next) => {
+  try {
+    const { page, limit } = req.query;
+
+    // 1. Pagination parsing and strict positive-integer validation
+    const isPositiveIntegerString = (val) =>
+      typeof val === 'string' && /^[1-9]\d*$/.test(val.trim());
+
+    let pageNum = 1;
+    if (page !== undefined) {
+      if (!isPositiveIntegerString(page)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Page must be a positive integer'
+        });
+      }
+      const parsedPage = Number(page.trim());
+      if (!Number.isSafeInteger(parsedPage)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Page must be a positive integer'
+        });
+      }
+      pageNum = parsedPage;
+    }
+
+    let limitNum = 10;
+    if (limit !== undefined) {
+      if (!isPositiveIntegerString(limit)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Limit must be a positive integer'
+        });
+      }
+      const parsedLimit = Number(limit.trim());
+      if (!Number.isSafeInteger(parsedLimit)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Limit must be a positive integer'
+        });
+      }
+      limitNum = parsedLimit;
+      if (limitNum > 50) {
+        limitNum = 50; // Maximum limit capped at 50
+      }
+    }
+
+    // 2. Validate skip does not overflow safe integer range
+    const skip = (pageNum - 1) * limitNum;
+    if (!Number.isSafeInteger(skip)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Page must be a positive integer'
+      });
+    }
+
+    // 3. Candidate isolation: derive candidate filter exclusively from req.userId
+    const query = { candidate: req.userId };
+
+    // 4. Query execution: deterministic newest-first sorting with tie-breaker and populated job fields
+    const [applications, total] = await Promise.all([
+      Application.find(query)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('job', 'title company location jobType workplaceMode status')
+        .select('-__v'),
+      Application.countDocuments(query)
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum) || 0;
+
+    return res.status(200).json({
+      success: true,
+      status: 'success',
+      data: applications,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-  applyToJob
+  applyToJob,
+  getMyApplications
 };
