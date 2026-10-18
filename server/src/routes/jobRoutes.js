@@ -3,26 +3,33 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 const {
+  getJobs,
+  getJobById,
   createJob,
   getMyJobs,
   updateJob,
   deleteJob
 } = require('../controllers/jobController');
 
-// All Day 8 job routes require authentication and employer role
-router.use(protect);
-router.use(authorize('employer'));
+// Route-level middleware for employer-only operations
+const requireEmployer = [protect, authorize('employer')];
 
-// POST /api/jobs - Post a new job
-router.post('/', createJob);
+// 1. Public job listing (No authentication required)
+router.get('/', getJobs);
 
-// GET /api/jobs/my - List employer's own jobs (Must be defined before /:id to prevent shadowing)
-router.get('/my', getMyJobs);
+// 2. Employer-only: list employer's own jobs (MUST precede /:id to prevent shadowing)
+router.get('/my', ...requireEmployer, getMyJobs);
 
-// PUT /api/jobs/:id - Update own job posting
-router.put('/:id', updateJob);
+// 3. Employer-only: create a new job posting
+router.post('/', ...requireEmployer, createJob);
 
-// DELETE /api/jobs/:id - Soft-close own job posting
-router.delete('/:id', deleteJob);
+// 4. Public job details (No authentication required; MUST follow /my)
+router.get('/:id', getJobById);
+
+// 5. Employer-only: update a job posting
+router.put('/:id', ...requireEmployer, updateJob);
+
+// 6. Employer-only: soft-close a job posting
+router.delete('/:id', ...requireEmployer, deleteJob);
 
 module.exports = router;

@@ -492,7 +492,168 @@ const deleteJob = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get all active jobs with search, filtering, and database pagination
+ * @route   GET /api/jobs
+ * @access  Public
+ */
+const getJobs = async (req, res, next) => {
+  try {
+    const {
+      search,
+      location,
+      jobType,
+      workplaceMode,
+      page,
+      limit
+    } = req.query;
+
+    // 1. Pagination parsing and validation
+    const isPositiveIntegerString = (val) =>
+      typeof val === 'string' && /^[1-9]\d*$/.test(val.trim());
+
+    let pageNum = 1;
+    if (page !== undefined) {
+      if (!isPositiveIntegerString(page)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Page must be a positive integer'
+        });
+      }
+      pageNum = Number(page.trim());
+    }
+
+    let limitNum = 10;
+    if (limit !== undefined) {
+      if (!isPositiveIntegerString(limit)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Limit must be a positive integer'
+        });
+      }
+      limitNum = Number(limit.trim());
+      if (limitNum > 50) {
+        limitNum = 50; // Capped at 50 as required
+      }
+    }
+
+    // 2. Query filter - only active jobs
+    const query = { status: 'active' };
+
+    // 3. Keyword search across title, company, location, description
+    if (search && typeof search === 'string' && search.trim()) {
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      query.$or = [
+        { title: searchRegex },
+        { company: searchRegex },
+        { location: searchRegex },
+        { description: searchRegex }
+      ];
+    }
+
+    // 4. Location filter
+    if (location && typeof location === 'string' && location.trim()) {
+      const escapedLocation = location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.location = new RegExp(escapedLocation, 'i');
+    }
+
+    // 5. Job type exact match filter
+    if (jobType !== undefined && jobType !== null && String(jobType).trim() !== '') {
+      const trimmedJobType = String(jobType).trim();
+      if (!VALID_JOB_TYPES.includes(trimmedJobType)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Invalid jobType filter: '${jobType}'. Allowed: ${VALID_JOB_TYPES.join(', ')}`
+        });
+      }
+      query.jobType = trimmedJobType;
+    }
+
+    // 6. Workplace mode exact match filter
+    if (workplaceMode !== undefined && workplaceMode !== null && String(workplaceMode).trim() !== '') {
+      const trimmedMode = String(workplaceMode).trim();
+      if (!VALID_WORKPLACE_MODES.includes(trimmedMode)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Invalid workplaceMode filter: '${workplaceMode}'. Allowed: ${VALID_WORKPLACE_MODES.join(', ')}`
+        });
+      }
+      query.workplaceMode = trimmedMode;
+    }
+
+    // 7. Database pagination execution
+    const skip = (pageNum - 1) * limitNum;
+
+    const [jobs, total] = await Promise.all([
+      Job.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .select('-__v'),
+      Job.countDocuments(query)
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum) || 0;
+
+    return res.status(200).json({
+      success: true,
+      status: 'success',
+      data: jobs,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get single active job details
+ * @route   GET /api/jobs/:id
+ * @access  Public
+ */
+const getJobById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Validate ObjectId format; return 404 for malformed ID per specification
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Job not found'
+      });
+    }
+
+    // 2. Query only active jobs (closed or missing jobs return 404)
+    const job = await Job.findOne({ _id: id, status: 'active' }).select('-__v');
+
+    if (!job) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Job not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: 'success',
+      data: {
+        job
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  getJobs,
+  getJobById,
   createJob,
   getMyJobs,
   updateJob,

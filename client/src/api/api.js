@@ -123,6 +123,31 @@ export const api = {
       })
   },
 
+  jobs: {
+    list: (params = {}) => {
+      const searchParams = new URLSearchParams();
+      if (params.search) searchParams.append('search', params.search);
+      if (params.location) searchParams.append('location', params.location);
+      if (params.jobType) searchParams.append('jobType', params.jobType);
+      if (params.workplaceMode) searchParams.append('workplaceMode', params.workplaceMode);
+      if (params.page !== undefined && params.page !== null && params.page !== '') {
+        searchParams.append('page', params.page);
+      }
+      if (params.limit !== undefined && params.limit !== null && params.limit !== '') {
+        searchParams.append('limit', params.limit);
+      }
+
+      const queryString = searchParams.toString();
+      const endpoint = queryString ? `/jobs?${queryString}` : '/jobs';
+      return request(endpoint, { method: 'GET' });
+    },
+
+    getById: (id) =>
+      request(`/jobs/${encodeURIComponent(id)}`, {
+        method: 'GET'
+      })
+  },
+
   health: {
     check: () => request('/health', { method: 'GET' })
   }
