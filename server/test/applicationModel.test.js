@@ -113,4 +113,17 @@ describe('Application Model Schema', () => {
       'Expected compound index on { candidate: 1, createdAt: -1, _id: -1 } for efficient sorting'
     );
   });
+
+  it('defines a compound index on { job: 1, createdAt: -1, _id: -1 } for employer listing', () => {
+    const indexes = Application.schema.indexes();
+    const jobIndex = indexes.find(
+      ([fields]) =>
+        fields.job === 1 && fields.createdAt === -1 && fields._id === -1
+    );
+
+    assert.ok(
+      jobIndex,
+      'Expected compound index on { job: 1, createdAt: -1, _id: -1 } for efficient employer listing'
+    );
+  });
 });

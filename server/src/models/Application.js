@@ -39,6 +39,9 @@ applicationSchema.index({ candidate: 1, job: 1 }, { unique: true });
 // Compound index for efficient candidate application listing sorted newest first with deterministic tie-breaker
 applicationSchema.index({ candidate: 1, createdAt: -1, _id: -1 });
 
+// Compound index for efficient employer job application listing sorted newest first with deterministic tie-breaker
+applicationSchema.index({ job: 1, createdAt: -1, _id: -1 });
+
 const Application = mongoose.model('Application', applicationSchema);
 
 module.exports = Application;
