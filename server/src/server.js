@@ -7,6 +7,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
+const resumeRoutes = require('./routes/resumeRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/resumes', resumeRoutes);
 
 // Root Welcome Endpoint
 app.get('/', (req, res) => {
