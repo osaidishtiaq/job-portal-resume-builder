@@ -150,5 +150,19 @@ export const api = {
 
   health: {
     check: () => request('/health', { method: 'GET' })
+  },
+
+  // ==================== Resume API ====================
+  resumes: {
+    /** GET /api/resumes/my */
+    getMyResume: () => request('/resumes/my', { method: 'GET' }),
+
+    /** PUT /api/resumes/my */
+    saveMyResume: (data) => request('/resumes/my', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
   }
+
+
 };

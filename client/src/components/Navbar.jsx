@@ -28,6 +28,18 @@ export default function Navbar({ currentView, setCurrentView }) {
             >
               Sign Out
             </button>
+            {/* Candidate-only Resume Builder navigation */}
+            {user?.role === 'candidate' && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCurrentView('resume')}
+                id="resume-nav-btn"
+                style={{ marginLeft: '8px' }}
+              >
+                Resume Builder
+              </button>
+            )}
           </div>
         ) : (
           <div className="navbar-nav-links">

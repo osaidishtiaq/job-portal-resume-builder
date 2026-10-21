@@ -1,0 +1,110 @@
+/* client/src/components/ResumePreview.css */
+/* Container splits editor and preview on desktop, stacks on mobile */
+.resume-builder-container {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.builder-form {
+  flex: 1 1 50%;
+}
+
+.builder-preview {
+  flex: 1 1 50%;
+  /* A4-like dimensions for preview */
+  max-width: 210mm; /* Approx A4 width */
+  min-height: 297mm; /* Approx A4 height */
+  padding: 20px;
+  background: #ffffff;
+  color: #18181b; /* dark text */
+  border: 1px solid #e5e7eb;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Resume preview content */
+.resume-preview {
+  font-family: var(--font-family, system-ui, sans-serif);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.resume-preview .section {
+  margin-bottom: 1.6rem;
+}
+
+.resume-preview .section h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-bottom: 1px solid #d1d5db;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.resume-preview .personal .name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.resume-preview .personal .headline {
+  font-style: italic;
+  color: #4b5563;
+  margin: 4px 0 12px 0;
+}
+
+.resume-preview .personal .contact span {
+  display: inline-block;
+  margin-right: 12px;
+  color: #374151;
+}
+
+.resume-preview .personal .summary {
+  margin-top: 12px;
+}
+
+/* Skill list */
+.resume-preview .skill-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resume-preview .skill-item {
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+/* Education / Experience entries */
+.resume-preview .edu-item,
+.resume-preview .exp-item {
+  margin-bottom: 12px;
+}
+
+.resume-preview .edu-header,
+.resume-preview .exp-header {
+  font-weight: 600;
+}
+
+.resume-preview .ed-dates,
+.resume-preview .exp-dates {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .resume-builder-container {
+    flex-direction: column;
+  }
+  .builder-preview {
+    max-width: 100%;
+    min-height: auto;
+  }
+}
