@@ -28,6 +28,16 @@ export default function Navbar({ currentView, setCurrentView }) {
             >
               Sign Out
             </button>
+            {/* Browse Jobs navigation */}
+            <button
+              type="button"
+              className={`btn btn-sm ${currentView === 'jobs' || currentView.startsWith('jobs/') ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setCurrentView('jobs')}
+              id="jobs-nav-btn"
+              style={{ marginLeft: '8px' }}
+            >
+              Browse Jobs
+            </button>
             {/* Candidate-only Resume Builder navigation */}
             {user?.role === 'candidate' && (
               <button
@@ -56,6 +66,14 @@ export default function Navbar({ currentView, setCurrentView }) {
               onClick={() => setCurrentView('register')}
             >
               Register
+            </button>
+            <button
+              type="button"
+              className={`nav-tab ${currentView === 'jobs' || currentView.startsWith('jobs/') ? 'active' : ''}`}
+              onClick={() => setCurrentView('jobs')}
+              id="jobs-nav-btn-public"
+            >
+              Browse Jobs
             </button>
             <button
               type="button"

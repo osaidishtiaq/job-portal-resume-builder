@@ -7,19 +7,22 @@ import RegisterForm from './components/RegisterForm';
 import Dashboard from './components/Dashboard';
 import HealthCard from './components/HealthCard';
 import ResumeBuilder from './components/ResumeBuilder';
+import JobList from './components/JobList';
+import JobDetail from './components/JobDetail';
 function MainApp() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentView, setCurrentView] = useState(() => {
     // Support URL hash routing (#login, #register, #dashboard, #health)
     const hash = window.location.hash.replace('#', '');
-    return ['login', 'register', 'dashboard', 'health', 'resume'].includes(hash) ? hash : 'login';
+    if (['login', 'register', 'dashboard', 'health', 'resume', 'jobs'].includes(hash) || hash.startsWith('jobs/')) return hash;
+    return 'login';
   });
 
   // Keep URL hash in sync with view
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['login', 'register', 'dashboard', 'health', 'resume'].includes(hash)) {
+      if (['login', 'register', 'dashboard', 'health', 'resume', 'jobs'].includes(hash) || hash.startsWith('jobs/')) {
         setCurrentView(hash);
       }
     };
@@ -38,6 +41,7 @@ function MainApp() {
     if (isAuthenticated && (currentView === 'login' || currentView === 'register')) {
       activeView = 'dashboard';
     } else if (!isAuthenticated && (currentView === 'dashboard' || currentView === 'resume')) {
+      // Jobs are public; only redirect protected views
       activeView = 'login';
     } else if (isAuthenticated && currentView === 'resume' && user?.role !== 'candidate') {
       // Non-candidate should not access resume builder
@@ -89,6 +93,10 @@ function MainApp() {
                 </div>
                 <HealthCard />
               </div>
+            ) : activeView === 'jobs' ? (
+              <JobList />
+            ) : activeView.startsWith('jobs/') ? (
+              <JobDetail />
             ) : (
               <Dashboard />
             )}
@@ -115,6 +123,8 @@ function MainApp() {
                 <HealthCard />
               </div>
             )}
+            {activeView === 'jobs' && <JobList />}
+            {activeView.startsWith('jobs/') && <JobDetail />}
           </>
         )}
       </main>
