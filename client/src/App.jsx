@@ -11,13 +11,14 @@ import JobList from './components/JobList';
 import JobDetail from './components/JobDetail';
 import JobPublishForm from './components/JobPublishForm';
 import JobApplicationForm from './components/JobApplicationForm';
+import MyApplications from './components/MyApplications';
 function MainApp() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentView, setCurrentView] = useState(() => {
     // Support URL hash routing (#login, #register, #dashboard, #health)
     const hash = window.location.hash.replace('#', '');
     if (
-      ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new'].includes(hash) ||
+      ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new', 'applications/my'].includes(hash) ||
       hash.startsWith('jobs/')
     ) return hash;
     return 'login';
@@ -28,7 +29,7 @@ function MainApp() {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
       if (
-        ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new'].includes(hash) ||
+        ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new', 'applications/my'].includes(hash) ||
         hash.startsWith('jobs/')
       ) {
         setCurrentView(hash);
@@ -50,9 +51,9 @@ function MainApp() {
       activeView = 'dashboard';
     } else if (
       !isAuthenticated &&
-      (currentView === 'dashboard' || currentView === 'resume' || currentView === 'employer/jobs/new' || currentView.endsWith('/apply'))
+      (currentView === 'dashboard' || currentView === 'resume' || currentView === 'employer/jobs/new' || currentView.endsWith('/apply') || currentView === 'applications/my')
     ) {
-      // Jobs are public; only redirect protected views (and candidate apply flow)
+      // Jobs are public; only redirect protected views (and candidate apply flow / applications)
       activeView = 'login';
     } else if (isAuthenticated && currentView === 'resume' && user?.role !== 'candidate') {
       // Non-candidate should not access resume builder
@@ -63,6 +64,9 @@ function MainApp() {
     } else if (isAuthenticated && currentView.endsWith('/apply') && user?.role !== 'candidate') {
       // Non-candidate (employer) should not access application flow; return to job details
       activeView = currentView.replace(/\/apply$/, '');
+    } else if (isAuthenticated && currentView === 'applications/my' && user?.role !== 'candidate') {
+      // Non-candidate (employer) should not access candidate applications; redirect to dashboard
+      activeView = 'dashboard';
     }
   }
 
@@ -99,6 +103,8 @@ function MainApp() {
               <ResumeBuilder />
             ) : activeView === 'employer/jobs/new' ? (
               <JobPublishForm />
+            ) : activeView === 'applications/my' ? (
+              <MyApplications />
             ) : activeView === 'health' ? (
               <div>
                 <div style={{ marginBottom: '16px' }}>

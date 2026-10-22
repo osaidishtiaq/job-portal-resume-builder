@@ -37,6 +37,17 @@ export default function Navbar({ currentView, setCurrentView }) {
             >
               Browse Jobs
             </button>
+            {/* Candidate-only Applications navigation */}
+            {user?.role === 'candidate' && (
+              <button
+                type="button"
+                className={`btn btn-sm ${currentView === 'applications/my' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCurrentView('applications/my')}
+                id="my-applications-nav-btn"
+              >
+                My Applications
+              </button>
+            )}
             {/* Candidate-only Resume Builder navigation */}
             {user?.role === 'candidate' && (
               <button

@@ -7,6 +7,8 @@ export default function JobDetail() {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [applyStatus, setApplyStatus] = useState('not-applied'); // 'loading' | 'applied' | 'not-applied' | 'error'
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   // Extract job ID from hash: #jobs/:id
   const rawHash = window.location.hash.replace(/^#/, '');
@@ -40,6 +42,49 @@ export default function JobDetail() {
       cancelled = true;
     };
   }, [jobId]);
+
+    // Check if the authenticated candidate has already applied to this job
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'candidate' || !jobId) {
+      // No need to set applyStatus here; default state handles non-candidate view.
+      return;
+    }
+
+    let cancelled = false;
+    const checkApplications = async () => {
+      setApplyStatus('loading');
+      let page = 1;
+      try {
+        while (true) {
+          const resp = await api.applications.getMyApplications({ page, limit: 50 });
+          if (cancelled) return;
+          const applications = resp?.data?.data ?? resp?.data ?? [];
+          const found = applications.some((app) => {
+            const jobObj = app?.job;
+            if (!jobObj) return false;
+            const jid = jobObj._id || jobObj.id || jobObj;
+            return String(jid) === String(jobId);
+          });
+          if (found) {
+            setApplyStatus('applied');
+            return;
+          }
+          const totalPages = resp?.pagination?.totalPages ?? 1;
+          if (page >= totalPages) break;
+          page += 1;
+        }
+        setApplyStatus('not-applied');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to check application status:', err);
+        setApplyStatus('error');
+      }
+    };
+    checkApplications();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.role, jobId, retryTrigger]);
 
   // Derive missing-ID state during render, not inside effect
   if (!jobId) {
@@ -162,14 +207,36 @@ export default function JobDetail() {
           </div>
         ) : (
           <div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => navigateTo(`jobs/${jobId}/apply`)}
-              id="apply-job-btn"
-            >
-              Apply for this Job
-            </button>
+                        {applyStatus === 'loading' && (
+              <button type="button" className="btn btn-primary" disabled id="apply-job-btn">
+                Checking application...
+              </button>
+            )}
+            {applyStatus === 'applied' && (
+              <button type="button" className="btn btn-secondary" disabled id="apply-job-btn" title="You have already applied to this job">
+                Already Applied
+              </button>
+            )}
+            {applyStatus === 'not-applied' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => navigateTo(`jobs/${jobId}/apply`)}
+                id="apply-job-btn"
+              >
+                Apply for this Job
+              </button>
+            )}
+            {applyStatus === 'error' && (
+              <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                <button type="button" className="btn btn-primary" disabled id="apply-job-btn" title="Error checking application status">
+                  Error
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setRetryTrigger(t => t + 1)} id="retry-apply-btn">
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
