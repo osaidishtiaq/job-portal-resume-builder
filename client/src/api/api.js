@@ -168,7 +168,29 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data)
     })
+  },
+
+  // ==================== Applications API ====================
+  applications: {
+    /** POST /api/jobs/:jobId/apply */
+    apply: (jobId, data = {}) =>
+      request(`/jobs/${encodeURIComponent(jobId)}/apply`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }),
+
+    /** GET /api/applications/my */
+    getMyApplications: (params = {}) => {
+      const searchParams = new URLSearchParams();
+      if (params.page !== undefined && params.page !== null && params.page !== '') {
+        searchParams.append('page', params.page);
+      }
+      if (params.limit !== undefined && params.limit !== null && params.limit !== '') {
+        searchParams.append('limit', params.limit);
+      }
+      const queryString = searchParams.toString();
+      const endpoint = queryString ? `/applications/my?${queryString}` : '/applications/my';
+      return request(endpoint, { method: 'GET' });
+    }
   }
-
-
 };

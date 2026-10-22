@@ -1,13 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/api';
+import { useAuth } from '../context/useAuth';
 
 export default function JobDetail() {
+  const { user, isAuthenticated } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Extract job ID from hash: #jobs/:id
-  const jobId = window.location.hash.replace('#', '').replace('jobs/', '');
+  const rawHash = window.location.hash.replace(/^#/, '');
+  const jobId = rawHash.replace(/^jobs\//, '').replace(/\/apply$/, '');
+
+  const navigateTo = (hash) => {
+    const url = new URL(window.location.href);
+    url.hash = hash;
+    window.location.assign(url);
+  };
 
   useEffect(() => {
     if (!jobId) return;
@@ -37,7 +46,7 @@ export default function JobDetail() {
     return (
       <div className="card error-card">
         <p>No job ID provided</p>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { window.location.hash = 'jobs'; }}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigateTo('jobs')}>
           ← Back to Jobs
         </button>
       </div>
@@ -45,7 +54,7 @@ export default function JobDetail() {
   }
 
   const handleBack = () => {
-    window.location.hash = 'jobs';
+    navigateTo('jobs');
   };
 
   if (loading) {
@@ -119,6 +128,51 @@ export default function JobDetail() {
           </ul>
         </div>
       )}
+
+      {/* Application Initiation Section */}
+      <div className="job-apply-section" style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-color)' }}>
+        {!isAuthenticated ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigateTo('login')}
+              id="apply-job-btn"
+            >
+              Sign in to Apply
+            </button>
+            <span className="form-text" style={{ margin: 0 }}>
+              You must be logged in as a candidate to apply for this job.
+            </span>
+          </div>
+        ) : user?.role === 'employer' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled
+              id="apply-job-btn"
+              title="Employer accounts cannot apply to jobs"
+            >
+              Employers Cannot Apply
+            </button>
+            <span className="form-text" style={{ margin: 0 }}>
+              You are signed in as an employer. Job applications are only available to candidate accounts.
+            </span>
+          </div>
+        ) : (
+          <div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigateTo(`jobs/${jobId}/apply`)}
+              id="apply-job-btn"
+            >
+              Apply for this Job
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

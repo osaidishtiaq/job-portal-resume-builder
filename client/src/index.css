@@ -754,3 +754,8 @@ h1 {
 .badge { display: inline-block; padding: 0.35em 0.65em; font-size: 0.85rem; font-weight: 700; color: #fff; background-color: var(--accent-purple); border-radius: 0.25rem; }
 .btn-close { appearance: none; background: transparent; border: none; width: 1rem; height: 1rem; opacity: 0.6; cursor: pointer; }
 .btn-close:hover { opacity: 0.9; }
+
+/* Job Application Card */
+.job-application-card {
+  width: 100%;
+}

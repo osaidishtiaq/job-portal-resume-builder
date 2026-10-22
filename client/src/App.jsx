@@ -10,6 +10,7 @@ import ResumeBuilder from './components/ResumeBuilder';
 import JobList from './components/JobList';
 import JobDetail from './components/JobDetail';
 import JobPublishForm from './components/JobPublishForm';
+import JobApplicationForm from './components/JobApplicationForm';
 function MainApp() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentView, setCurrentView] = useState(() => {
@@ -49,9 +50,9 @@ function MainApp() {
       activeView = 'dashboard';
     } else if (
       !isAuthenticated &&
-      (currentView === 'dashboard' || currentView === 'resume' || currentView === 'employer/jobs/new')
+      (currentView === 'dashboard' || currentView === 'resume' || currentView === 'employer/jobs/new' || currentView.endsWith('/apply'))
     ) {
-      // Jobs are public; only redirect protected views
+      // Jobs are public; only redirect protected views (and candidate apply flow)
       activeView = 'login';
     } else if (isAuthenticated && currentView === 'resume' && user?.role !== 'candidate') {
       // Non-candidate should not access resume builder
@@ -59,6 +60,9 @@ function MainApp() {
     } else if (isAuthenticated && currentView === 'employer/jobs/new' && user?.role !== 'employer') {
       // Non-employer should not access job publishing page
       activeView = 'dashboard';
+    } else if (isAuthenticated && currentView.endsWith('/apply') && user?.role !== 'candidate') {
+      // Non-candidate (employer) should not access application flow; return to job details
+      activeView = currentView.replace(/\/apply$/, '');
     }
   }
 
@@ -110,6 +114,8 @@ function MainApp() {
               </div>
             ) : activeView === 'jobs' ? (
               <JobList />
+            ) : activeView.startsWith('jobs/') && activeView.endsWith('/apply') ? (
+              <JobApplicationForm />
             ) : activeView.startsWith('jobs/') ? (
               <JobDetail />
             ) : (
