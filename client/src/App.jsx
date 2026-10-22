@@ -9,12 +9,16 @@ import HealthCard from './components/HealthCard';
 import ResumeBuilder from './components/ResumeBuilder';
 import JobList from './components/JobList';
 import JobDetail from './components/JobDetail';
+import JobPublishForm from './components/JobPublishForm';
 function MainApp() {
   const { user, isAuthenticated, loading } = useAuth();
   const [currentView, setCurrentView] = useState(() => {
     // Support URL hash routing (#login, #register, #dashboard, #health)
     const hash = window.location.hash.replace('#', '');
-    if (['login', 'register', 'dashboard', 'health', 'resume', 'jobs'].includes(hash) || hash.startsWith('jobs/')) return hash;
+    if (
+      ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new'].includes(hash) ||
+      hash.startsWith('jobs/')
+    ) return hash;
     return 'login';
   });
 
@@ -22,7 +26,10 @@ function MainApp() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['login', 'register', 'dashboard', 'health', 'resume', 'jobs'].includes(hash) || hash.startsWith('jobs/')) {
+      if (
+        ['login', 'register', 'dashboard', 'health', 'resume', 'jobs', 'employer/jobs/new'].includes(hash) ||
+        hash.startsWith('jobs/')
+      ) {
         setCurrentView(hash);
       }
     };
@@ -40,11 +47,17 @@ function MainApp() {
   if (!loading) {
     if (isAuthenticated && (currentView === 'login' || currentView === 'register')) {
       activeView = 'dashboard';
-    } else if (!isAuthenticated && (currentView === 'dashboard' || currentView === 'resume')) {
+    } else if (
+      !isAuthenticated &&
+      (currentView === 'dashboard' || currentView === 'resume' || currentView === 'employer/jobs/new')
+    ) {
       // Jobs are public; only redirect protected views
       activeView = 'login';
     } else if (isAuthenticated && currentView === 'resume' && user?.role !== 'candidate') {
       // Non-candidate should not access resume builder
+      activeView = 'dashboard';
+    } else if (isAuthenticated && currentView === 'employer/jobs/new' && user?.role !== 'employer') {
+      // Non-employer should not access job publishing page
       activeView = 'dashboard';
     }
   }
@@ -80,6 +93,8 @@ function MainApp() {
           <>
             {activeView === 'resume' ? (
               <ResumeBuilder />
+            ) : activeView === 'employer/jobs/new' ? (
+              <JobPublishForm />
             ) : activeView === 'health' ? (
               <div>
                 <div style={{ marginBottom: '16px' }}>

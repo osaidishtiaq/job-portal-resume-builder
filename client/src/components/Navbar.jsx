@@ -34,7 +34,6 @@ export default function Navbar({ currentView, setCurrentView }) {
               className={`btn btn-sm ${currentView === 'jobs' || currentView.startsWith('jobs/') ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setCurrentView('jobs')}
               id="jobs-nav-btn"
-              style={{ marginLeft: '8px' }}
             >
               Browse Jobs
             </button>
@@ -45,9 +44,19 @@ export default function Navbar({ currentView, setCurrentView }) {
                 className="btn btn-primary btn-sm"
                 onClick={() => setCurrentView('resume')}
                 id="resume-nav-btn"
-                style={{ marginLeft: '8px' }}
               >
                 Resume Builder
+              </button>
+            )}
+            {/* Employer-only Post a Job navigation */}
+            {user?.role === 'employer' && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCurrentView('employer/jobs/new')}
+                id="post-job-nav-btn"
+              >
+                Post a Job
               </button>
             )}
           </div>

@@ -145,6 +145,12 @@ export const api = {
     getById: (id) =>
       request(`/jobs/${encodeURIComponent(id)}`, {
         method: 'GET'
+      }),
+
+    create: (jobData) =>
+      request('/jobs', {
+        method: 'POST',
+        body: JSON.stringify(jobData)
       })
   },
 
