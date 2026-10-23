@@ -124,6 +124,10 @@ export const api = {
   },
 
   jobs: {
+    /** GET /api/jobs/my (employer only) */
+    getMyJobs: () =>
+      request('/jobs/my', { method: 'GET' }),
+
     list: (params = {}) => {
       const searchParams = new URLSearchParams();
       if (params.search) searchParams.append('search', params.search);
@@ -191,6 +195,30 @@ export const api = {
       const queryString = searchParams.toString();
       const endpoint = queryString ? `/applications/my?${queryString}` : '/applications/my';
       return request(endpoint, { method: 'GET' });
+    },
+
+    /** GET /api/applications/job/:jobId */
+    getJobApplications: (jobId, params = {}) => {
+      const searchParams = new URLSearchParams();
+      if (params.page !== undefined && params.page !== null && params.page !== '') {
+        searchParams.append('page', params.page);
+      }
+      if (params.limit !== undefined && params.limit !== null && params.limit !== '') {
+        searchParams.append('limit', params.limit);
+      }
+      const queryString = searchParams.toString();
+      const endpoint = queryString
+        ? `/applications/job/${encodeURIComponent(jobId)}?${queryString}`
+        : `/applications/job/${encodeURIComponent(jobId)}`;
+      return request(endpoint, { method: 'GET' });
+    },
+
+    /** PATCH /api/applications/:applicationId/status */
+    updateApplicationStatus: (applicationId, status) => {
+      return request(`/applications/${encodeURIComponent(applicationId)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
     }
   }
 };

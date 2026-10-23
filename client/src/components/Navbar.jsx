@@ -60,16 +60,26 @@ export default function Navbar({ currentView, setCurrentView }) {
               </button>
             )}
             {/* Employer-only Post a Job navigation */}
-            {user?.role === 'employer' && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setCurrentView('employer/jobs/new')}
-                id="post-job-nav-btn"
-              >
-                Post a Job
-              </button>
-            )}
+{user?.role === 'employer' && (
+  <>
+    <button
+      type="button"
+      className="btn btn-primary btn-sm"
+      onClick={() => setCurrentView('employer/jobs/new')}
+      id="post-job-nav-btn"
+    >
+      Post a Job
+    </button>
+    <button
+      type="button"
+      className={`btn btn-sm ${currentView === 'employer/jobs' ? 'btn-primary' : 'btn-secondary'}`}
+      onClick={() => setCurrentView('employer/jobs')}
+      id="my-jobs-nav-btn"
+    >
+      My Jobs
+    </button>
+  </>
+)}
           </div>
         ) : (
           <div className="navbar-nav-links">
