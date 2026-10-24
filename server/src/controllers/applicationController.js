@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Application = require('../models/Application');
+const emailService = require('../services/emailService');
 const Job = require('../models/Job');
+const User = require('../models/User');
 
 /**
  * @desc    Submit a job application for an active job
@@ -73,7 +75,25 @@ const applyToJob = async (req, res, next) => {
       job: id,
       coverLetter: coverLetterToSave
     });
-
+    // 6. Notify employer via email (non-blocking, errors logged but do not affect response)
+    try {
+      if (process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_FROM && job.employer) {
+        const employer = await User.findById(job.employer);
+        const candidate = req.userId ? await User.findById(req.userId) : null;
+        if (employer && employer.email) {
+          const candidateName = candidate && candidate.name ? candidate.name : 'A candidate';
+          await emailService.sendApplicationNotification({
+            employerEmail: employer.email,
+            employerName: employer.name,
+            jobTitle: job.title,
+            candidateName,
+            applicationId: application._id.toString()
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to send application notification email:', emailErr);
+    }
     return res.status(201).json({
       status: 'success',
       message: 'Application submitted successfully',

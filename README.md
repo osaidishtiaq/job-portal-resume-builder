@@ -99,6 +99,25 @@ Job Portal/
    ```
    > ⚠️ **Security Note:** Never commit `.env` files to git. `.env` is listed in `.gitignore`.
 
+### 📧 SMTP Email Configuration
+
+The backend uses **Nodemailer**. Add the following variables to `server/.env` (never commit this file):
+
+```
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+SMTP_FROM=no-reply@example.com
+```
+
+- `SMTP_HOST` – SMTP server hostname.
+- `SMTP_PORT` – `465` for implicit TLS (secure = true) or `587` for STARTTLS (secure = false). The service automatically selects the correct mode.
+- `SMTP_USER` / `SMTP_PASS` – credentials for authentication. They are **never** logged or exposed.
+- `SMTP_FROM` – the sender address used in notifications.
+
+If any of the above variables are missing, the email service will silently skip sending – the application submission still returns **HTTP 201**. Failures when sending (e.g., network errors) are caught and logged but do not affect the API response.
+
 ---
 
 ### Step 3: Run the Application

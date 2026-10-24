@@ -1,8 +1,9 @@
-const { describe, it } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const mongoose = require('mongoose');
 const Application = require('../src/models/Application');
 const Job = require('../src/models/Job');
+const User = require('../src/models/User');
 const { applyToJob } = require('../src/controllers/applicationController');
 const jobRouter = require('../src/routes/jobRoutes');
 const { protect } = require('../src/middleware/authMiddleware');
@@ -29,6 +30,14 @@ describe('Day 10: Candidate Job Application Controller & Route Security', () => 
   const validJobId = new mongoose.Types.ObjectId().toString();
 
   describe('applyToJob - Candidate Application Submission', () => {
+    let originalUserFindById;
+    before(() => {
+      originalUserFindById = User.findById;
+      User.findById = async () => ({ email: 'employer@test.com', name: 'Employer' });
+    });
+    after(() => {
+      User.findById = originalUserFindById;
+    });
     it('submits application successfully with a valid cover letter (201)', async () => {
       const mockActiveJob = {
         _id: validJobId,
