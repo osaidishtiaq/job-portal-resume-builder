@@ -20,6 +20,16 @@ export default function Navbar({ currentView, setCurrentView }) {
             <span className={`role-badge role-${user?.role || 'candidate'}`}>
               {user?.role}
             </span>
+            {/* Profile navigation */}
+            <button
+              type="button"
+                className={`btn btn-sm ${currentView === 'profile' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCurrentView('profile')}
+                id="profile-nav-btn"
+            >
+              Profile
+            </button>
+            {/* Logout */}
             <button
               type="button"
               className="btn btn-secondary btn-sm"

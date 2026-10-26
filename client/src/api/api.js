@@ -120,6 +120,11 @@ export const api = {
     getMe: () =>
       request('/auth/me', {
         method: 'GET'
+      }),
+    updateMe: (profileData) =>
+      request('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify(profileData)
       })
   },
 

@@ -259,4 +259,180 @@ const getMe = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe };
+// 6. Update profile endpoint
+const updateMe = async (req, res, next) => {
+  try {
+    // 0. Ensure request body is a plain object
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Request body must be a JSON object'
+      });
+    }
+
+    const payloadKeys = Object.keys(req.body);
+    if (payloadKeys.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'No fields provided for update'
+      });
+    }
+
+    // 1. Reject any password fields outright (presence check)
+    if (Object.prototype.hasOwnProperty.call(req.body, 'password') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'passwordConfirm')) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Password updates are not allowed via this endpoint'
+      });
+    }
+
+    // 2. Determine allowed fields based on role
+    const role = req.user.role;
+    const shared = ['name', 'phone', 'location'];
+    const candidateOnly = ['headline'];
+    const employerOnly = ['companyName', 'companyWebsite', 'companyDescription'];
+    let allowed = [...shared];
+    if (role === 'candidate') allowed = allowed.concat(candidateOnly);
+    if (role === 'employer') allowed = allowed.concat(employerOnly);
+
+    // 3. Detect forbidden fields (including opposite‑role fields)
+    const forbidden = payloadKeys.filter(k => !allowed.includes(k));
+    if (forbidden.length) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Invalid field(s): ${forbidden.join(', ')}`
+      });
+    }
+
+    // 4. Validate and sanitize each allowed field
+    const sanitized = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        const raw = req.body[key];
+        if (raw !== undefined && raw !== null && typeof raw !== 'string') {
+          return res.status(400).json({
+            status: 'fail',
+            message: `${key} must be a string`
+          });
+        }
+        const value = raw == null ? '' : raw.trim();
+
+        switch (key) {
+          case 'name':
+            if (value.length < 2 || value.length > 50) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Name must be between 2 and 50 characters'
+              });
+            }
+            sanitized.name = value;
+            break;
+          case 'phone':
+            if (value.length > 30) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Phone must be 30 characters or fewer'
+              });
+            }
+            sanitized.phone = value;
+            break;
+          case 'location':
+            if (value.length > 120) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Location must be 120 characters or fewer'
+              });
+            }
+            sanitized.location = value;
+            break;
+          case 'headline':
+            if (value.length > 160) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Headline must be 160 characters or fewer'
+              });
+            }
+            sanitized.headline = value;
+            break;
+          case 'companyName':
+            if (value.length > 120) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Company name must be 120 characters or fewer'
+              });
+            }
+            sanitized.companyName = value;
+            break;
+          case 'companyWebsite':
+            if (value.length > 200) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Company website must be 200 characters or fewer'
+              });
+            }
+            if (value) {
+              const urlPattern = /^(https?:\/\/)[\w.-]+(?:\.[\w.-]+)+[\w\-._~:\/?#\[\]@!$&'()*+,;=.]*$/i;
+              if (!urlPattern.test(value)) {
+                return res.status(400).json({
+                  status: 'fail',
+                  message: 'Company website must be a valid http:// or https:// URL'
+                });
+              }
+            }
+            sanitized.companyWebsite = value;
+            break;
+          case 'companyDescription':
+            if (value.length > 2000) {
+              return res.status(400).json({
+                status: 'fail',
+                message: 'Company description must be 2000 characters or fewer'
+              });
+            }
+            sanitized.companyDescription = value;
+            break;
+          default:
+            // never reached
+        }
+      }
+    }
+
+    // 5. Perform the update – preserve omitted fields
+    const updatedUser = await User.findByIdAndUpdate(req.userId, sanitized, {
+      new: true,
+      runValidators: true
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found'
+      });
+    }
+
+    // 6. Serialize safe response (same shape as GET /me)
+    const responseUser = {
+      id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      createdAt: updatedUser.createdAt
+    };
+    if (updatedUser.phone) responseUser.phone = updatedUser.phone;
+    if (updatedUser.location) responseUser.location = updatedUser.location;
+    if (updatedUser.headline) responseUser.headline = updatedUser.headline;
+    if (updatedUser.companyName) responseUser.companyName = updatedUser.companyName;
+    if (updatedUser.companyWebsite) responseUser.companyWebsite = updatedUser.companyWebsite;
+    if (updatedUser.companyDescription) responseUser.companyDescription = updatedUser.companyDescription;
+
+    return res.status(200).json({
+      status: 'success',
+      data: { user: responseUser }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Export controllers
+module.exports = { register, login, getMe, updateMe };

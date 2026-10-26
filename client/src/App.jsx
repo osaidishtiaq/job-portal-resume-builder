@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
+import Profile from './components/Profile';
 
 import Navbar from './components/Navbar';
 import LoginForm from './components/LoginForm';
@@ -20,7 +21,7 @@ const knownRoutes = [
   'login',
   'register',
   'dashboard',
-  'health',
+  'profile',
   'resume',
   'jobs',
   'employer/jobs',
@@ -151,6 +152,8 @@ function MainApp() {
             <JobApplicationForm />
           ) : activeView.startsWith('jobs/') ? (
             <JobDetail />
+          ) : activeView === 'profile' ? (
+            <Profile />
           ) : (
             <Dashboard />
           )

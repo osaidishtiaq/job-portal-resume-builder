@@ -142,6 +142,18 @@ export function AuthProvider({ children }) {
     setAuthError(null);
   }, []);
 
+  // Refresh user data from backend (e.g., after profile update)
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await api.auth.getMe();
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+    } catch (err) {
+      console.warn('Failed to refresh user:', err);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -152,9 +164,10 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
-      clearError
+      clearError,
+      refreshUser
     }),
-    [user, token, loading, authError, login, register, logout, clearError]
+    [user, token, loading, authError, login, register, logout, clearError, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
