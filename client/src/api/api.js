@@ -134,6 +134,12 @@ export const api = {
       if (params.location) searchParams.append('location', params.location);
       if (params.jobType) searchParams.append('jobType', params.jobType);
       if (params.workplaceMode) searchParams.append('workplaceMode', params.workplaceMode);
+      if (params.salaryMin !== undefined && params.salaryMin !== null && params.salaryMin !== '') {
+        searchParams.append('salaryMin', params.salaryMin);
+      }
+      if (params.salaryMax !== undefined && params.salaryMax !== null && params.salaryMax !== '') {
+        searchParams.append('salaryMax', params.salaryMax);
+      }
       if (params.page !== undefined && params.page !== null && params.page !== '') {
         searchParams.append('page', params.page);
       }

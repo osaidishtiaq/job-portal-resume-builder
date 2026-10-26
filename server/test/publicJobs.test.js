@@ -409,6 +409,354 @@ describe('Day 9: Public Job Search and Job Details API', () => {
         Job.countDocuments = originalCount;
       }
     });
+
+    describe('Salary Range Overlap Filtering (Milestone 1C)', () => {
+      it('filters by minimum salary (salaryMin) only with overlap condition', async () => {
+        const capturedQuery = {};
+        const originalFind = Job.find;
+        const originalCount = Job.countDocuments;
+
+        Job.find = (filter) => {
+          capturedQuery.findFilter = filter;
+          return createMockChainableQuery([], capturedQuery);
+        };
+        Job.countDocuments = async (filter) => {
+          capturedQuery.countFilter = filter;
+          return 5;
+        };
+
+        try {
+          const req = { query: { salaryMin: '60000' } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 200);
+          assert.strictEqual(capturedQuery.findFilter.status, 'active');
+          assert.ok(Array.isArray(capturedQuery.findFilter.$and), 'Must use $and for salary conditions');
+          assert.strictEqual(capturedQuery.findFilter.$and.length, 1);
+
+          // salaryMin overlap condition: salaryMax >= 60000 OR (salaryMax is null AND salaryMin is not null)
+          const minCond = capturedQuery.findFilter.$and[0];
+          assert.deepStrictEqual(minCond, {
+            $or: [
+              { salaryMax: { $gte: 60000 } },
+              { salaryMax: null, salaryMin: { $ne: null } }
+            ]
+          });
+          assert.deepStrictEqual(capturedQuery.countFilter.$and, capturedQuery.findFilter.$and);
+        } finally {
+          Job.find = originalFind;
+          Job.countDocuments = originalCount;
+        }
+      });
+
+      it('filters by maximum salary (salaryMax) only with overlap condition', async () => {
+        const capturedQuery = {};
+        const originalFind = Job.find;
+        const originalCount = Job.countDocuments;
+
+        Job.find = (filter) => {
+          capturedQuery.findFilter = filter;
+          return createMockChainableQuery([], capturedQuery);
+        };
+        Job.countDocuments = async (filter) => {
+          capturedQuery.countFilter = filter;
+          return 3;
+        };
+
+        try {
+          const req = { query: { salaryMax: '90000' } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 200);
+          assert.strictEqual(capturedQuery.findFilter.status, 'active');
+          assert.ok(Array.isArray(capturedQuery.findFilter.$and));
+          assert.strictEqual(capturedQuery.findFilter.$and.length, 1);
+
+          // salaryMax overlap condition: salaryMin <= 90000 OR (salaryMin is null AND salaryMax is not null)
+          const maxCond = capturedQuery.findFilter.$and[0];
+          assert.deepStrictEqual(maxCond, {
+            $or: [
+              { salaryMin: { $lte: 90000 } },
+              { salaryMin: null, salaryMax: { $ne: null } }
+            ]
+          });
+        } finally {
+          Job.find = originalFind;
+          Job.countDocuments = originalCount;
+        }
+      });
+
+      it('filters by both salaryMin and salaryMax applying both overlap conditions', async () => {
+        const capturedQuery = {};
+        const originalFind = Job.find;
+        const originalCount = Job.countDocuments;
+
+        Job.find = (filter) => {
+          capturedQuery.findFilter = filter;
+          return createMockChainableQuery([], capturedQuery);
+        };
+        Job.countDocuments = async (filter) => {
+          capturedQuery.countFilter = filter;
+          return 2;
+        };
+
+        try {
+          const req = { query: { salaryMin: '50000', salaryMax: '80000' } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 200);
+          assert.ok(Array.isArray(capturedQuery.findFilter.$and));
+          assert.strictEqual(capturedQuery.findFilter.$and.length, 2);
+
+          assert.deepStrictEqual(capturedQuery.findFilter.$and[0], {
+            $or: [
+              { salaryMax: { $gte: 50000 } },
+              { salaryMax: null, salaryMin: { $ne: null } }
+            ]
+          });
+          assert.deepStrictEqual(capturedQuery.findFilter.$and[1], {
+            $or: [
+              { salaryMin: { $lte: 80000 } },
+              { salaryMin: null, salaryMax: { $ne: null } }
+            ]
+          });
+        } finally {
+          Job.find = originalFind;
+          Job.countDocuments = originalCount;
+        }
+      });
+
+      it('accepts zero salary as a valid filter (salaryMin=0, salaryMax=0)', async () => {
+        const capturedQuery = {};
+        const originalFind = Job.find;
+        const originalCount = Job.countDocuments;
+
+        Job.find = (filter) => {
+          capturedQuery.findFilter = filter;
+          return createMockChainableQuery([], capturedQuery);
+        };
+        Job.countDocuments = async () => 1;
+
+        try {
+          const req = { query: { salaryMin: '0', salaryMax: '0' } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 200);
+          assert.strictEqual(capturedQuery.findFilter.$and.length, 2);
+          assert.deepStrictEqual(capturedQuery.findFilter.$and[0], {
+            $or: [
+              { salaryMax: { $gte: 0 } },
+              { salaryMax: null, salaryMin: { $ne: null } }
+            ]
+          });
+          assert.deepStrictEqual(capturedQuery.findFilter.$and[1], {
+            $or: [
+              { salaryMin: { $lte: 0 } },
+              { salaryMin: null, salaryMax: { $ne: null } }
+            ]
+          });
+        } finally {
+          Job.find = originalFind;
+          Job.countDocuments = originalCount;
+        }
+      });
+
+      it('rejects invalid salaryMin with 400', async () => {
+        const invalidSalaryMins = [
+          '',
+          '   ',
+          '-1',
+          '-500',
+          'abc',
+          '100k',
+          '50000abc',
+          '1e5',
+          'Infinity',
+          '-Infinity',
+          'NaN',
+          ['50000'],
+          ['50000', '60000'],
+          { value: '50000' }
+        ];
+
+        for (const invalidVal of invalidSalaryMins) {
+          const req = { query: { salaryMin: invalidVal } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 400, `Expected 400 for salaryMin='${JSON.stringify(invalidVal)}'`);
+          assert.strictEqual(res.jsonData.status, 'fail');
+          assert.strictEqual(res.jsonData.message, 'Minimum salary must be a non-negative number');
+        }
+      });
+
+      it('rejects invalid salaryMax with 400', async () => {
+        const invalidSalaryMaxs = [
+          '',
+          '   ',
+          '-1',
+          '-1000',
+          'xyz',
+          '200k',
+          '80000xyz',
+          '1e6',
+          'Infinity',
+          '-Infinity',
+          'NaN',
+          ['80000'],
+          ['80000', '90000'],
+          { value: '80000' }
+        ];
+
+        for (const invalidVal of invalidSalaryMaxs) {
+          const req = { query: { salaryMax: invalidVal } };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 400, `Expected 400 for salaryMax='${JSON.stringify(invalidVal)}'`);
+          assert.strictEqual(res.jsonData.status, 'fail');
+          assert.strictEqual(res.jsonData.message, 'Maximum salary must be a non-negative number');
+        }
+      });
+
+      it('rejects reversed salary range (salaryMin > salaryMax) with 400', async () => {
+        const req = { query: { salaryMin: '100000', salaryMax: '50000' } };
+        const res = createMockRes();
+
+        await getJobs(req, res, () => {});
+
+        assert.strictEqual(res.statusCode, 400);
+        assert.strictEqual(res.jsonData.status, 'fail');
+        assert.strictEqual(res.jsonData.message, 'Minimum salary cannot exceed maximum salary');
+      });
+
+      it('combines search, location, jobType, and salary range overlap without overwriting keyword search $or', async () => {
+        const capturedQuery = {};
+        const originalFind = Job.find;
+        const originalCount = Job.countDocuments;
+
+        Job.find = (filter) => {
+          capturedQuery.findFilter = filter;
+          return createMockChainableQuery([], capturedQuery);
+        };
+        Job.countDocuments = async (filter) => {
+          capturedQuery.countFilter = filter;
+          return 12;
+        };
+
+        try {
+          const req = {
+            query: {
+              search: 'Full Stack',
+              location: 'San Francisco',
+              jobType: 'full-time',
+              salaryMin: '70000',
+              salaryMax: '120000',
+              page: '1',
+              limit: '10'
+            }
+          };
+          const res = createMockRes();
+
+          await getJobs(req, res, () => {});
+
+          assert.strictEqual(res.statusCode, 200);
+          assert.strictEqual(capturedQuery.findFilter.status, 'active');
+          assert.ok(capturedQuery.findFilter.$or, 'Top-level keyword search $or must be preserved');
+          assert.strictEqual(capturedQuery.findFilter.$or.length, 4);
+          assert.ok(capturedQuery.findFilter.location instanceof RegExp);
+          assert.strictEqual(capturedQuery.findFilter.jobType, 'full-time');
+          assert.ok(Array.isArray(capturedQuery.findFilter.$and), 'Salary filter must reside in $and');
+          assert.strictEqual(capturedQuery.findFilter.$and.length, 2);
+          assert.deepStrictEqual(capturedQuery.findFilter.$and, capturedQuery.countFilter.$and);
+        } finally {
+          Job.find = originalFind;
+          Job.countDocuments = originalCount;
+        }
+      });
+
+      it('evaluates salary overlap semantics correctly against closed, open, and missing intervals', () => {
+        // Helper to evaluate MongoDB $or conditions on in-memory mock docs
+        const matchesCondition = (doc, cond) => {
+          return cond.$or.some((branch) => {
+            if (branch.salaryMax && branch.salaryMax.$gte !== undefined) {
+              return doc.salaryMax !== undefined && doc.salaryMax !== null && doc.salaryMax >= branch.salaryMax.$gte;
+            }
+            if (branch.salaryMax === null && branch.salaryMin && branch.salaryMin.$ne === null) {
+              return (doc.salaryMax === undefined || doc.salaryMax === null) && doc.salaryMin !== undefined && doc.salaryMin !== null;
+            }
+            if (branch.salaryMin && branch.salaryMin.$lte !== undefined) {
+              return doc.salaryMin !== undefined && doc.salaryMin !== null && doc.salaryMin <= branch.salaryMin.$lte;
+            }
+            if (branch.salaryMin === null && branch.salaryMax && branch.salaryMax.$ne === null) {
+              return (doc.salaryMin === undefined || doc.salaryMin === null) && doc.salaryMax !== undefined && doc.salaryMax !== null;
+            }
+            return false;
+          });
+        };
+
+        const minCond = {
+          $or: [
+            { salaryMax: { $gte: 50000 } },
+            { salaryMax: null, salaryMin: { $ne: null } }
+          ]
+        };
+        const maxCond = {
+          $or: [
+            { salaryMin: { $lte: 70000 } },
+            { salaryMin: null, salaryMax: { $ne: null } }
+          ]
+        };
+
+        const closedOverlap = { salaryMin: 40000, salaryMax: 60000 };
+        const closedAbove = { salaryMin: 80000, salaryMax: 100000 };
+        const closedBelow = { salaryMin: 10000, salaryMax: 30000 };
+        const openUpwardOverlap = { salaryMin: 60000 };
+        const openUpwardAbove = { salaryMin: 80000 };
+        const openDownwardOverlap = { salaryMax: 60000 };
+        const openDownwardBelow = { salaryMax: 40000 };
+        const noSalary = {};
+
+        // minCond: known upper bound is not below 50,000
+        assert.strictEqual(matchesCondition(closedOverlap, minCond), true);
+        assert.strictEqual(matchesCondition(closedAbove, minCond), true);
+        assert.strictEqual(matchesCondition(closedBelow, minCond), false);
+        assert.strictEqual(matchesCondition(openUpwardOverlap, minCond), true);
+        assert.strictEqual(matchesCondition(openDownwardOverlap, minCond), true);
+        assert.strictEqual(matchesCondition(openDownwardBelow, minCond), false);
+        assert.strictEqual(matchesCondition(noSalary, minCond), false);
+
+        // maxCond: known lower bound is not above 70,000
+        assert.strictEqual(matchesCondition(closedOverlap, maxCond), true);
+        assert.strictEqual(matchesCondition(closedAbove, maxCond), false);
+        assert.strictEqual(matchesCondition(closedBelow, maxCond), true);
+        assert.strictEqual(matchesCondition(openUpwardOverlap, maxCond), true);
+        assert.strictEqual(matchesCondition(openUpwardAbove, maxCond), false);
+        assert.strictEqual(matchesCondition(openDownwardOverlap, maxCond), true);
+        assert.strictEqual(matchesCondition(noSalary, maxCond), false);
+
+        // Combined [50k, 70k]
+        const matchesBoth = (doc) => matchesCondition(doc, minCond) && matchesCondition(doc, maxCond);
+        assert.strictEqual(matchesBoth(closedOverlap), true); // [40k, 60k] overlaps [50k, 70k]
+        assert.strictEqual(matchesBoth(closedAbove), false); // [80k, 100k] out of range
+        assert.strictEqual(matchesBoth(closedBelow), false); // [10k, 30k] out of range
+        assert.strictEqual(matchesBoth(openUpwardOverlap), true); // [60k, inf) overlaps [50k, 70k]
+        assert.strictEqual(matchesBoth(openUpwardAbove), false); // [80k, inf) out of range
+        assert.strictEqual(matchesBoth(openDownwardOverlap), true); // [0, 60k] overlaps [50k, 70k]
+        assert.strictEqual(matchesBoth(openDownwardBelow), false); // [0, 40k] out of range
+        assert.strictEqual(matchesBoth(noSalary), false); // missing excluded
+      });
+    });
   });
 
   describe('GET /api/jobs/:id (Public Job Details)', () => {

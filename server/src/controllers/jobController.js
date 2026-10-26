@@ -504,6 +504,8 @@ const getJobs = async (req, res, next) => {
       location,
       jobType,
       workplaceMode,
+      salaryMin,
+      salaryMax,
       page,
       limit
     } = req.query;
@@ -537,10 +539,46 @@ const getJobs = async (req, res, next) => {
       }
     }
 
-    // 2. Query filter - only active jobs
+    // 2. Salary filter parsing and validation
+    const isValidSalaryString = (val) =>
+      typeof val === 'string' &&
+      /^\d+(\.\d+)?$/.test(val.trim()) &&
+      Number.isFinite(Number(val.trim())) &&
+      Number(val.trim()) >= 0;
+
+    let parsedSalaryMin;
+    if (salaryMin !== undefined) {
+      if (!isValidSalaryString(salaryMin)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Minimum salary must be a non-negative number'
+        });
+      }
+      parsedSalaryMin = Number(salaryMin.trim());
+    }
+
+    let parsedSalaryMax;
+    if (salaryMax !== undefined) {
+      if (!isValidSalaryString(salaryMax)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Maximum salary must be a non-negative number'
+        });
+      }
+      parsedSalaryMax = Number(salaryMax.trim());
+    }
+
+    if (parsedSalaryMin !== undefined && parsedSalaryMax !== undefined && parsedSalaryMin > parsedSalaryMax) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Minimum salary cannot exceed maximum salary'
+      });
+    }
+
+    // 3. Query filter - only active jobs
     const query = { status: 'active' };
 
-    // 3. Keyword search across title, company, location, description
+    // 4. Keyword search across title, company, location, description
     if (search && typeof search === 'string' && search.trim()) {
       const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
@@ -552,13 +590,13 @@ const getJobs = async (req, res, next) => {
       ];
     }
 
-    // 4. Location filter
+    // 5. Location filter
     if (location && typeof location === 'string' && location.trim()) {
       const escapedLocation = location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.location = new RegExp(escapedLocation, 'i');
     }
 
-    // 5. Job type exact match filter
+    // 6. Job type exact match filter
     if (jobType !== undefined && jobType !== null && String(jobType).trim() !== '') {
       const trimmedJobType = String(jobType).trim();
       if (!VALID_JOB_TYPES.includes(trimmedJobType)) {
@@ -570,7 +608,7 @@ const getJobs = async (req, res, next) => {
       query.jobType = trimmedJobType;
     }
 
-    // 6. Workplace mode exact match filter
+    // 7. Workplace mode exact match filter
     if (workplaceMode !== undefined && workplaceMode !== null && String(workplaceMode).trim() !== '') {
       const trimmedMode = String(workplaceMode).trim();
       if (!VALID_WORKPLACE_MODES.includes(trimmedMode)) {
@@ -580,6 +618,29 @@ const getJobs = async (req, res, next) => {
         });
       }
       query.workplaceMode = trimmedMode;
+    }
+
+    // 8. Salary range overlap filter
+    const salaryConditions = [];
+    if (parsedSalaryMin !== undefined) {
+      salaryConditions.push({
+        $or: [
+          { salaryMax: { $gte: parsedSalaryMin } },
+          { salaryMax: null, salaryMin: { $ne: null } }
+        ]
+      });
+    }
+    if (parsedSalaryMax !== undefined) {
+      salaryConditions.push({
+        $or: [
+          { salaryMin: { $lte: parsedSalaryMax } },
+          { salaryMin: null, salaryMax: { $ne: null } }
+        ]
+      });
+    }
+
+    if (salaryConditions.length > 0) {
+      query.$and = salaryConditions;
     }
 
     // 7. Database pagination execution
