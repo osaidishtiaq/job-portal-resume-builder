@@ -1,19 +1,18 @@
 // client/src/components/ResumeBuilder.jsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { jsPDF } from 'jspdf';
 import { api } from '../api/api';
 import ResumeForm from './ResumeForm';
 import ResumePreview from './ResumePreview';
 import { useAuth } from '../context/useAuth';
+import { generateResumePdf } from '../utils/resumePdfGenerator';
 
 /**
- * ResumeBuilder – Phase 2 container.
- * Loads the candidate's resume, provides minimal editing for fullName and email,
- * and saves back to the backend while preserving all other fields.
+ * ResumeBuilder – Container component for editing, previewing, template selection, and PDF export.
  */
 export default function ResumeBuilder() {
   const { user } = useAuth();
   const [resume, setResume] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('professional');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -23,12 +22,16 @@ export default function ResumeBuilder() {
   const [showPreview, setShowPreview] = useState(true); // mobile toggle
 
   const loadResume = useCallback(() => {
-
     api.resumes
       .getMyResume()
       .then((resp) => {
         const fetched = resp?.data?.resume || null;
         if (fetched) {
+          const tId =
+            fetched.templateId && ['professional', 'minimal', 'modern'].includes(fetched.templateId)
+              ? fetched.templateId
+              : 'professional';
+          setSelectedTemplate(tId);
           setResume({
             personalDetails: {
               fullName: fetched.personalDetails?.fullName ?? '',
@@ -43,6 +46,7 @@ export default function ResumeBuilder() {
             experience: fetched.experience ?? []
           });
         } else {
+          setSelectedTemplate('professional');
           setResume({
             personalDetails: {
               fullName: user?.name ?? '',
@@ -78,6 +82,13 @@ export default function ResumeBuilder() {
       isMounted.current = false;
     };
   }, [loadResume]);
+
+  const handleTemplateChange = (templateId) => {
+    if (templateId === selectedTemplate) return;
+    setSelectedTemplate(templateId);
+    setDirty(true);
+    setSuccess('');
+  };
 
   const handleFieldChange = (field, value) => {
     setResume((prev) => {
@@ -124,7 +135,6 @@ export default function ResumeBuilder() {
     // skills validation already done in ResumeForm, but guard here as well
     if (resume.skills && resume.skills.length > 50) errorsTmp.skills = 'Maximum 50 skills';
     // education validation
-    // education entry count limit
     if (resume.education && resume.education.length > 20) {
       errorsTmp.education = errorsTmp.education || {};
       errorsTmp.education._count = 'Maximum 20 education entries';
@@ -160,7 +170,6 @@ export default function ResumeBuilder() {
       }
     });
     // experience validation
-    // experience entry count limit
     if (resume.experience && resume.experience.length > 20) {
       errorsTmp.experience = errorsTmp.experience || {};
       errorsTmp.experience._count = 'Maximum 20 experience entries';
@@ -195,8 +204,7 @@ export default function ResumeBuilder() {
         errorsTmp.experience[idx] = exErr;
       }
     });
-    // Note: detailed count errors are handled earlier in the validation block.
-    // No duplicate simple count errors needed here.
+
     if (Object.keys(errorsTmp).length) {
       setFieldErrors(errorsTmp);
       setError('Please fix highlighted fields');
@@ -207,6 +215,7 @@ export default function ResumeBuilder() {
     setError('');
     setSuccess('');
     const payload = {
+      templateId: selectedTemplate,
       personalDetails: {
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
@@ -216,11 +225,8 @@ export default function ResumeBuilder() {
         summary: summary ?? ''
       },
       skills: resume.skills ?? [],
-      // Strip MongoDB internal fields from nested documents
-      // Remove internal fields from education and experience entries
       education: (resume.education ?? []).map((e) => {
         const { _id, ...rest } = e;
-        // Remove clientId if present
         delete rest.clientId;
         return rest;
       }),
@@ -230,13 +236,13 @@ export default function ResumeBuilder() {
         return rest;
       })
     };
-    const snapshot = JSON.stringify(resume);
+    const snapshot = JSON.stringify({ resume, selectedTemplate });
     api.resumes
       .saveMyResume(payload)
       .then(() => {
         if (isMounted.current) {
           // If no newer edits occurred while the request was in flight, clear dirty flag
-          if (snapshot === JSON.stringify(resume)) {
+          if (snapshot === JSON.stringify({ resume, selectedTemplate })) {
             setDirty(false);
           }
           setSuccess('Resume saved successfully');
@@ -251,89 +257,11 @@ export default function ResumeBuilder() {
       });
   };
 
-  // Generate and download PDF of current resume state
+  // Generate and download template-aware PDF of current resume state
   const handleDownloadPDF = () => {
     if (!resume) return;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const margin = 40;
-    let y = margin;
-    const lineHeight = 14;
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    const addText = (text) => {
-      const lines = doc.splitTextToSize(text, doc.internal.pageSize.getWidth() - margin * 2);
-      lines.forEach((ln) => {
-        if (y + lineHeight > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(ln, margin, y);
-        y += lineHeight;
-      });
-    };
-
-    const { personalDetails, skills = [], education = [], experience = [] } = resume;
-    // Personal Details
-    if (personalDetails.fullName) {
-      doc.setFontSize(20);
-      doc.text(personalDetails.fullName, margin, y);
-      y += lineHeight * 2;
-    }
-    doc.setFontSize(12);
-    if (personalDetails.headline) {
-      addText(personalDetails.headline);
-    }
-    if (personalDetails.email) addText(`Email: ${personalDetails.email}`);
-    if (personalDetails.phone) addText(`Phone: ${personalDetails.phone}`);
-    if (personalDetails.location) addText(`Location: ${personalDetails.location}`);
-    if (personalDetails.summary) {
-      y += lineHeight;
-      addText(personalDetails.summary);
-    }
-
-    // Skills
-    if (skills.length) {
-      y += lineHeight;
-      addText('Skills:');
-      addText(skills.join(', '));
-    }
-
-    // Education
-    if (education.length) {
-      y += lineHeight;
-      addText('Education:');
-      education.forEach((ed) => {
-        y += lineHeight;
-        addText(`${ed.institution} – ${ed.qualification}${ed.fieldOfStudy ? ', ' + ed.fieldOfStudy : ''}`);
-        if (ed.startDate || ed.endDate) {
-          addText(`${ed.startDate || ''} – ${ed.endDate || ''}`);
-        }
-        if (ed.description) addText(ed.description);
-      });
-    }
-
-    // Experience
-    if (experience.length) {
-      y += lineHeight;
-      addText('Experience:');
-      experience.forEach((ex) => {
-        y += lineHeight;
-        addText(`${ex.company} – ${ex.jobTitle}`);
-        if (ex.location) addText(`Location: ${ex.location}`);
-        if (ex.startDate || ex.endDate) {
-          addText(`${ex.startDate || ''} – ${ex.endDate || ''}`);
-        }
-        if (ex.description) addText(ex.description);
-      });
-    }
-
-    // Sanitized filename
-    const safeName = (personalDetails.fullName || 'resume')
-      .replace(/[^a-z0-9]/gi, '_')
-      .toLowerCase();
-    doc.save(`${safeName}.pdf`);
+    generateResumePdf(resume, selectedTemplate);
   };
-
 
   if (loading) {
     return (
@@ -358,6 +286,46 @@ export default function ResumeBuilder() {
 
   return (
     <>
+      {/* Template Selection Controls */}
+      <div className="template-selector-toolbar" role="region" aria-label="Resume Template Selection">
+        <span className="template-selector-label" id="template-selector-label">
+          Resume Template:
+        </span>
+        <div
+          className="template-selector-group"
+          role="radiogroup"
+          aria-labelledby="template-selector-label"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selectedTemplate === 'professional'}
+            className={`template-btn ${selectedTemplate === 'professional' ? 'active' : ''}`}
+            onClick={() => handleTemplateChange('professional')}
+          >
+            Professional
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selectedTemplate === 'minimal'}
+            className={`template-btn ${selectedTemplate === 'minimal' ? 'active' : ''}`}
+            onClick={() => handleTemplateChange('minimal')}
+          >
+            Minimal
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selectedTemplate === 'modern'}
+            className={`template-btn ${selectedTemplate === 'modern' ? 'active' : ''}`}
+            onClick={() => handleTemplateChange('modern')}
+          >
+            Modern
+          </button>
+        </div>
+      </div>
+
       {/* Mobile toggle button */}
       <button
         type="button"
@@ -397,7 +365,7 @@ export default function ResumeBuilder() {
           </div>
         </div>
         <div className={`builder-preview ${!showPreview ? 'mobile-hidden' : ''}`}>
-          <ResumePreview resumeData={resume} />
+          <ResumePreview resumeData={resume} template={selectedTemplate} />
         </div>
       </div>
     </>

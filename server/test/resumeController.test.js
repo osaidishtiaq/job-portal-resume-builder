@@ -67,6 +67,39 @@ describe('Resume Controller – GET /api/resumes/my', () => {
     assert.strictEqual(capturedErr, error);
     Resume.findOne = originalFindOne;
   });
+
+  it('returns resume with templateId for hydrated document', async () => {
+    const hydratedDoc = Resume.hydrate({
+      _id: new mongoose.Types.ObjectId(),
+      user: mockUserId,
+      personalDetails: { fullName: 'Alex Smith', email: 'alex@example.com' }
+    });
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => hydratedDoc;
+    const req = { userId: mockUserId };
+    const res = createMockRes();
+    await getMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.jsonData.data.resume.templateId, 'professional');
+    Resume.findOne = originalFindOne;
+  });
+
+  it('returns specific templateId when stored', async () => {
+    const mockResume = {
+      _id: 'resumeId',
+      user: mockUserId,
+      templateId: 'modern',
+      personalDetails: { fullName: 'Modern Candidate' }
+    };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => mockResume;
+    const req = { userId: mockUserId };
+    const res = createMockRes();
+    await getMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.jsonData.data.resume.templateId, 'modern');
+    Resume.findOne = originalFindOne;
+  });
 });
 
 describe('Resume Controller – PUT /api/resumes/my', () => {
@@ -184,6 +217,161 @@ describe('Resume Controller – PUT /api/resumes/my', () => {
     assert.strictEqual(existing.saveCalled, true);
     assert.strictEqual(existing.personalDetails.fullName, 'New Name');
     assert.strictEqual(existing.personalDetails.email, 'new@example.com');
+    Resume.findOne = originalFindOne;
+  });
+
+  it('rejects invalid templateId', async () => {
+    const req = {
+      userId: mockUserId,
+      body: {
+        templateId: 'invalid-template',
+        personalDetails: { fullName: 'John Doe', email: 'john@example.com' }
+      }
+    };
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 400);
+    assert.ok(res.jsonData.message.includes('Invalid template identifier'));
+  });
+
+  it('rejects non-string templateId', async () => {
+    const req = {
+      userId: mockUserId,
+      body: {
+        templateId: 12345,
+        personalDetails: { fullName: 'John Doe', email: 'john@example.com' }
+      }
+    };
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 400);
+    assert.ok(res.jsonData.message.includes('Invalid template identifier'));
+  });
+
+  it('rejects template-only update when no resume exists yet', async () => {
+    const req = { userId: mockUserId, body: { templateId: 'modern' } };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => null;
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 400);
+    assert.ok(res.jsonData.message.includes('personalDetails must be a valid object'));
+    Resume.findOne = originalFindOne;
+  });
+
+  it('creates a new resume with valid templateId', async () => {
+    const payload = {
+      templateId: 'minimal',
+      personalDetails: { fullName: 'Jane Doe', email: 'jane@example.com' },
+      skills: [],
+      education: [],
+      experience: []
+    };
+    const req = { userId: mockUserId, body: payload };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => null;
+    const originalConstructor = Resume;
+    function MockResume(data) {
+      Object.assign(this, data);
+      this.saved = false;
+    }
+    MockResume.prototype.save = async function () { this.saved = true; return this; };
+    const moduleCache = require.cache[require.resolve('../src/models/Resume')];
+    moduleCache.exports = MockResume;
+    const { saveMyResume: mockedSave } = require('../src/controllers/resumeController');
+    const res = createMockRes();
+    await mockedSave(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.jsonData.data.resume.templateId, 'minimal');
+    Resume.findOne = originalFindOne;
+    moduleCache.exports = originalConstructor;
+  });
+
+  it('supports template-only update and preserves existing resume content', async () => {
+    const existing = {
+      user: mockUserId,
+      templateId: 'professional',
+      personalDetails: { fullName: 'Preserved Name', email: 'preserved@example.com' },
+      skills: ['Node.js', 'React'],
+      education: [{ institution: 'MIT', qualification: 'B.S.' }],
+      experience: [{ company: 'Acme', jobTitle: 'Engineer' }],
+      saveCalled: false,
+      async save() { this.saveCalled = true; return this; }
+    };
+    const payload = {
+      templateId: 'modern'
+    };
+    const req = { userId: mockUserId, body: payload };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => existing;
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(existing.saveCalled, true);
+    assert.strictEqual(existing.templateId, 'modern');
+    assert.strictEqual(existing.personalDetails.fullName, 'Preserved Name');
+    assert.strictEqual(existing.personalDetails.email, 'preserved@example.com');
+    assert.deepStrictEqual(existing.skills, ['Node.js', 'React']);
+    assert.strictEqual(existing.education[0].institution, 'MIT');
+    assert.strictEqual(existing.experience[0].company, 'Acme');
+    Resume.findOne = originalFindOne;
+  });
+
+  it('updates templateId alongside other fields on existing resume', async () => {
+    const existing = {
+      user: mockUserId,
+      templateId: 'professional',
+      personalDetails: { fullName: 'Old Name', email: 'old@example.com' },
+      skills: [],
+      education: [],
+      experience: [],
+      saveCalled: false,
+      async save() { this.saveCalled = true; return this; }
+    };
+    const payload = {
+      templateId: 'minimal',
+      personalDetails: { fullName: 'New Name', email: 'new@example.com' },
+      skills: ['TypeScript'],
+      education: [],
+      experience: []
+    };
+    const req = { userId: mockUserId, body: payload };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => existing;
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(existing.saveCalled, true);
+    assert.strictEqual(existing.templateId, 'minimal');
+    assert.strictEqual(existing.personalDetails.fullName, 'New Name');
+    assert.deepStrictEqual(existing.skills, ['TypeScript']);
+    Resume.findOne = originalFindOne;
+  });
+
+  it('preserves existing templateId when update payload does not include templateId', async () => {
+    const existing = {
+      user: mockUserId,
+      templateId: 'modern',
+      personalDetails: { fullName: 'Old Name', email: 'old@example.com' },
+      skills: [],
+      education: [],
+      experience: [],
+      saveCalled: false,
+      async save() { this.saveCalled = true; return this; }
+    };
+    const payload = {
+      personalDetails: { fullName: 'New Name', email: 'new@example.com' },
+      skills: [],
+      education: [],
+      experience: []
+    };
+    const req = { userId: mockUserId, body: payload };
+    const originalFindOne = Resume.findOne;
+    Resume.findOne = async () => existing;
+    const res = createMockRes();
+    await saveMyResume(req, res, () => {});
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(existing.templateId, 'modern');
     Resume.findOne = originalFindOne;
   });
 });

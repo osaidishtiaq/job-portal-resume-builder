@@ -136,6 +136,14 @@ const resumeSchema = new mongoose.Schema(
       required: [true, 'User reference is required'],
       unique: true
     },
+    templateId: {
+      type: String,
+      enum: {
+        values: ['professional', 'minimal', 'modern'],
+        message: 'Invalid template identifier. Must be one of: professional, minimal, modern'
+      },
+      default: 'professional'
+    },
     personalDetails: {
       type: personalDetailsSchema,
       required: [true, 'Personal details are required'],

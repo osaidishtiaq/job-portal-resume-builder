@@ -76,7 +76,7 @@ const saveMyResume = async (req, res, next) => {
     }
 
     // 2. Reject client-supplied top-level unknown or protected fields
-    const allowedTopKeys = ['personalDetails', 'skills', 'education', 'experience'];
+    const allowedTopKeys = ['personalDetails', 'skills', 'education', 'experience', 'templateId'];
     const unknownTopKeys = Object.keys(req.body).filter((k) => !allowedTopKeys.includes(k));
     if (unknownTopKeys.length > 0) {
       return res.status(400).json({
@@ -85,7 +85,56 @@ const saveMyResume = async (req, res, next) => {
       });
     }
 
+    const ALLOWED_TEMPLATES = ['professional', 'minimal', 'modern'];
+    let sanitizedTemplateId;
+    if (req.body.templateId !== undefined) {
+      if (typeof req.body.templateId !== 'string' || !ALLOWED_TEMPLATES.includes(req.body.templateId)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Invalid template identifier. Must be one of: ${ALLOWED_TEMPLATES.join(', ')}`
+        });
+      }
+      sanitizedTemplateId = req.body.templateId;
+    }
+
     const { personalDetails, skills, education, experience } = req.body;
+
+    // Check if personalDetails is missing
+    if (personalDetails === undefined) {
+      // If neither personalDetails nor templateId was provided (e.g. body: {})
+      if (sanitizedTemplateId === undefined) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'personalDetails must be a valid object'
+        });
+      }
+
+      // Template-only update: requires an existing resume
+      const Resume = require('../models/Resume');
+      let resume = null;
+      if (typeof Resume.findOne === 'function') {
+        resume = await Resume.findOne({ user: req.userId });
+      }
+
+      if (!resume) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'personalDetails must be a valid object'
+        });
+      }
+
+      resume.templateId = sanitizedTemplateId;
+      await resume.save();
+
+      return res.status(200).json({
+        success: true,
+        status: 'success',
+        message: 'Resume saved successfully',
+        data: {
+          resume
+        }
+      });
+    }
 
     // 3. Validate personalDetails (required object)
     if (!personalDetails || typeof personalDetails !== 'object' || Array.isArray(personalDetails)) {
@@ -371,13 +420,17 @@ const saveMyResume = async (req, res, next) => {
       resume.skills = sanitizedSkills;
       resume.education = sanitizedEducation;
       resume.experience = sanitizedExperience;
+      if (sanitizedTemplateId !== undefined) {
+        resume.templateId = sanitizedTemplateId;
+      }
     } else {
       resume = new Resume({
         user: req.userId,
         personalDetails: sanitizedPersonalDetails,
         skills: sanitizedSkills,
         education: sanitizedEducation,
-        experience: sanitizedExperience
+        experience: sanitizedExperience,
+        templateId: sanitizedTemplateId || 'professional'
       });
     }
 

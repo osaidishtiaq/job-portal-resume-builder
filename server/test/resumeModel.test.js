@@ -433,4 +433,49 @@ describe('Resume Model Schema', () => {
       );
     });
   });
+
+  describe('Template Selection Validation', () => {
+    it('defaults templateId to professional when omitted', () => {
+      const resume = new Resume(validResumeData);
+      assert.strictEqual(resume.templateId, 'professional');
+    });
+
+    it('accepts all three valid templateId values: professional, minimal, modern', () => {
+      for (const tId of ['professional', 'minimal', 'modern']) {
+        const resume = new Resume({
+          ...validResumeData,
+          templateId: tId
+        });
+        const error = resume.validateSync();
+        assert.strictEqual(error, undefined);
+        assert.strictEqual(resume.templateId, tId);
+      }
+    });
+
+    it('rejects invalid templateId values', () => {
+      const invalidTemplates = ['creative', 'executive', 'compact', 'PROFESSIONAL', ''];
+      for (const tId of invalidTemplates) {
+        const resume = new Resume({
+          ...validResumeData,
+          templateId: tId
+        });
+        const error = resume.validateSync();
+        assert.ok(error, `Expected templateId '${tId}' to fail validation`);
+        assert.ok(error.errors.templateId);
+        assert.ok(error.errors.templateId.message.includes('Invalid template identifier'));
+      }
+    });
+
+    it('hydrates existing documents without templateId to default professional', () => {
+      const doc = Resume.hydrate({
+        user: validUserId,
+        personalDetails: {
+          fullName: 'Legacy User',
+          email: 'legacy@example.com'
+        }
+      });
+      assert.strictEqual(doc.templateId, 'professional');
+      assert.strictEqual(doc.toJSON().templateId, 'professional');
+    });
+  });
 });

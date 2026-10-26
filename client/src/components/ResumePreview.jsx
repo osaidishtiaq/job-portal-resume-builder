@@ -3,27 +3,28 @@ import React from 'react';
 import './ResumePreview.css';
 
 /**
- * Read‑only preview of the resume. Updates instantly when the parent state changes.
+ * Read-only preview of the resume with template support. Updates instantly when parent state changes.
  * Props:
  *   resumeData – object containing personalDetails, skills, education, experience.
+ *   template – template identifier ('professional', 'minimal', 'modern'). Defaults to 'professional'.
  */
-export default function ResumePreview({ resumeData }) {
+export default function ResumePreview({ resumeData, template = 'professional' }) {
   if (!resumeData) return null;
   const { personalDetails, skills = [], education = [], experience = [] } = resumeData;
   const { fullName, email, phone, location, headline, summary } = personalDetails || {};
 
   return (
-    <div className="resume-preview">
-      <section className="section personal">
-        <h1 className="name">{fullName}</h1>
+    <div className={`resume-preview template-${template}`} data-template={template}>
+      <header className="section personal">
+        <h1 className="name">{fullName || 'Your Name'}</h1>
         {headline && <p className="headline">{headline}</p>}
         <div className="contact">
-          {email && <span>{email}</span>}
-          {phone && <span>{phone}</span>}
-          {location && <span>{location}</span>}
+          {email && <span className="contact-item contact-email">{email}</span>}
+          {phone && <span className="contact-item contact-phone">{phone}</span>}
+          {location && <span className="contact-item contact-location">{location}</span>}
         </div>
         {summary && <p className="summary">{summary}</p>}
-      </section>
+      </header>
 
       {skills.length > 0 && (
         <section className="section skills">
@@ -36,35 +37,52 @@ export default function ResumePreview({ resumeData }) {
         </section>
       )}
 
-      {education.length > 0 && (
-        <section className="section education">
-          <h2>Education</h2>
-          {education.map((ed, i) => (
-            <div key={i} className="edu-item">
-              <div className="edu-header">
-                <strong>{ed.institution}</strong>{' '}–{' '}{ed.qualification}
-                {ed.fieldOfStudy && <span className="field-of-study">, {ed.fieldOfStudy}</span>}
-              </div>
-              <div className="ed-dates">{ed.startDate} – {ed.endDate}</div>
-              {ed.description && <p className="ed-description">{ed.description}</p>}
-            </div>
-          ))}
-        </section>
-      )}
-
       {experience.length > 0 && (
         <section className="section experience">
           <h2>Experience</h2>
-          {experience.map((ex, i) => (
-            <div key={i} className="exp-item">
-              <div className="exp-header">
-                <strong>{ex.company}</strong>{' '}–{' '}{ex.jobTitle}
+          <div className="experience-list">
+            {experience.map((ex, i) => (
+              <div key={i} className="exp-item">
+                <div className="exp-header">
+                  <strong>{ex.company}</strong>{ex.jobTitle ? ` – ${ex.jobTitle}` : ''}
+                </div>
+                <div className="exp-meta">
+                  {ex.location && <span className="exp-location">{ex.location}</span>}
+                  {(ex.startDate || ex.endDate) && (
+                    <span className="exp-dates">
+                      {ex.location ? ' • ' : ''}
+                      {ex.startDate || ''}{ex.startDate && ex.endDate ? ' – ' : ''}{ex.endDate || ''}
+                    </span>
+                  )}
+                </div>
+                {ex.description && <p className="exp-description">{ex.description}</p>}
               </div>
-              <div className="exp-location">{ex.location}</div>
-              <div className="exp-dates">{ex.startDate} – {ex.endDate}</div>
-              {ex.description && <p className="exp-description">{ex.description}</p>}
-            </div>
-          ))}
+            ))}
+          </div>
+        </section>
+      )}
+
+      {education.length > 0 && (
+        <section className="section education">
+          <h2>Education</h2>
+          <div className="education-list">
+            {education.map((ed, i) => (
+              <div key={i} className="edu-item">
+                <div className="edu-header">
+                  <strong>{ed.institution}</strong>{ed.qualification ? ` – ${ed.qualification}` : ''}
+                  {ed.fieldOfStudy && <span className="field-of-study">, {ed.fieldOfStudy}</span>}
+                </div>
+                <div className="edu-meta">
+                  {(ed.startDate || ed.endDate) && (
+                    <span className="ed-dates">
+                      {ed.startDate || ''}{ed.startDate && ed.endDate ? ' – ' : ''}{ed.endDate || ''}
+                    </span>
+                  )}
+                </div>
+                {ed.description && <p className="ed-description">{ed.description}</p>}
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>
