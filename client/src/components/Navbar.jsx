@@ -7,7 +7,7 @@ export default function Navbar({ currentView, setCurrentView }) {
   return (
     <header className="navbar">
       <div className="navbar-brand" onClick={() => setCurrentView(isAuthenticated ? 'dashboard' : 'login')}>
-        <span className="brand-badge">DAY 6</span>
+
         <span className="brand-title">Job Portal</span>
       </div>
 
