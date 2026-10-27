@@ -12,6 +12,7 @@ import ResumeBuilder from './components/ResumeBuilder';
 import JobList from './components/JobList';
 import JobDetail from './components/JobDetail';
 import JobPublishForm from './components/JobPublishForm';
+import EmployerJobEdit from './components/EmployerJobEdit';
 import JobApplicationForm from './components/JobApplicationForm';
 import MyApplications from './components/MyApplications';
 import EmployerMyJobs from './components/EmployerMyJobs';
@@ -37,7 +38,8 @@ function isValidRoute(view) {
   return (
     knownRoutes.includes(view) ||
     /^jobs\/[^/]+(?:\/apply)?$/.test(view) ||
-    isEmployerApplicationsRoute(view)
+    isEmployerApplicationsRoute(view) ||
+    /^employer\/jobs\/[^/]+\/edit$/.test(view)
   );
 }
 
@@ -122,18 +124,20 @@ function MainApp() {
     <div className="container app-container">
       <Navbar currentView={activeView} setCurrentView={changeView} />
       <main className="main-content">
-        {isAuthenticated ? (
-          activeView === 'resume' ? (
-            <ResumeBuilder />
-          ) : activeView === 'employer/jobs/new' ? (
-            <JobPublishForm />
-          ) : activeView === 'employer/jobs' ? (
-            <EmployerMyJobs />
-          ) : isEmployerApplicationsRoute(activeView) ? (
-            <EmployerJobApplications />
-          ) : activeView === 'applications/my' ? (
-            <MyApplications />
-          ) : activeView === 'health' ? (
+{isAuthenticated ? (
+  activeView.startsWith('employer/jobs/') && activeView.endsWith('/edit')
+    ? <EmployerJobEdit jobId={activeView.split('/')[2]} />
+    : activeView === 'resume' ? (
+      <ResumeBuilder />
+    ) : activeView === 'employer/jobs/new' ? (
+      <JobPublishForm />
+    ) : activeView === 'employer/jobs' ? (
+      <EmployerMyJobs />
+    ) : isEmployerApplicationsRoute(activeView) ? (
+      <EmployerJobApplications />
+    ) : activeView === 'applications/my' ? (
+      <MyApplications />
+    ) : activeView === 'health' ? (
             <div>
               <div style={{ marginBottom: '16px' }}>
                 <button

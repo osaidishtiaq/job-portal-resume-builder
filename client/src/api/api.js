@@ -166,6 +166,19 @@ export const api = {
       request('/jobs', {
         method: 'POST',
         body: JSON.stringify(jobData)
+      }),
+
+    // Update an existing job (PUT /api/jobs/:id)
+    update: (id, payload) =>
+      request(`/jobs/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      }),
+
+    // Close a job (soft‑delete via DELETE /api/jobs/:id)
+    close: (id) =>
+      request(`/jobs/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
       })
   },
 

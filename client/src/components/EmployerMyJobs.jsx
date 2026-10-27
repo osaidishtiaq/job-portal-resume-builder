@@ -5,6 +5,7 @@ export default function EmployerMyJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -96,6 +97,56 @@ export default function EmployerMyJobs() {
             >
               Review Applications
             </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => (window.location.hash = `employer/jobs/${job._id}/edit`)}
+              id={`edit-job-${job._id}`}
+              style={{ marginLeft: '8px' }}
+            >
+              Edit
+            </button>
+            {job.status === 'active' ? (
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={async () => {
+                  if (!window.confirm('Are you sure you want to close this job?')) return;
+                  setActionLoadingId(job._id);
+                  try {
+                    await api.jobs.close(job._id);
+                    await fetchJobs();
+                  } catch (e) {
+                    alert('Failed to close job: ' + e.message);
+                  } finally {
+                    setActionLoadingId(null);
+                  }
+                }}
+                id={`close-job-${job._id}`}
+                style={{ marginLeft: '8px' }}
+                disabled={actionLoadingId === job._id}
+              >
+                {actionLoadingId === job._id ? 'Closing…' : 'Close'}
+              </button>
+            ) : (
+              <button
+                className="btn btn-success btn-sm"
+                onClick={async () => {
+                  setActionLoadingId(job._id);
+                  try {
+                    await api.jobs.update(job._id, { status: 'active' });
+                    await fetchJobs();
+                  } catch (e) {
+                    alert('Failed to reopen job: ' + e.message);
+                  } finally {
+                    setActionLoadingId(null);
+                  }
+                }}
+                id={`reopen-job-${job._id}`}
+                style={{ marginLeft: '8px' }}
+                disabled={actionLoadingId === job._id}
+              >
+                {actionLoadingId === job._id ? 'Reopening…' : 'Reopen'}
+              </button>
+            )}
           </div>
         ))}
       </div>
