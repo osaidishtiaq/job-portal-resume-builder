@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 
-export default function LoginForm({ onSwitchToRegister }) {
+export default function LoginForm({ onSwitchToRegister, onSwitchToForgotPassword }) {
   const { login, authError, clearError } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -94,6 +94,18 @@ export default function LoginForm({ onSwitchToRegister }) {
             autoComplete="current-password"
             disabled={loading}
           />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px', marginTop: '-4px' }}>
+          <button
+            type="button"
+            className="link-button"
+            onClick={onSwitchToForgotPassword || (() => { window.location.hash = 'forgot-password'; })}
+            disabled={loading}
+            style={{ fontSize: '0.85rem' }}
+          >
+            Forgot password?
+          </button>
         </div>
 
         <button

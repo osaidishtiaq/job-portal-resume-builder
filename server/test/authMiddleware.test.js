@@ -23,12 +23,12 @@ describe('authMiddleware - protect', () => {
     return res;
   };
 
-  it('rejects request when Authorization header is missing', () => {
+  it('rejects request when Authorization header is missing', async () => {
     const req = { headers: {} };
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    await protect(req, res, () => {
       nextCalled = true;
     });
 
@@ -38,12 +38,12 @@ describe('authMiddleware - protect', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('rejects request when Authorization header does not start with Bearer', () => {
+  it('rejects request when Authorization header does not start with Bearer', async () => {
     const req = { headers: { authorization: 'Basic somebase64credentials' } };
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    await protect(req, res, () => {
       nextCalled = true;
     });
 
@@ -53,12 +53,12 @@ describe('authMiddleware - protect', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('rejects request when Bearer token is empty or whitespace', () => {
+  it('rejects request when Bearer token is empty or whitespace', async () => {
     const req = { headers: { authorization: 'Bearer ' } };
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    await protect(req, res, () => {
       nextCalled = true;
     });
 
@@ -68,13 +68,13 @@ describe('authMiddleware - protect', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('rejects request when token is invalid or signed with wrong secret', () => {
+  it('rejects request when token is invalid or signed with wrong secret', async () => {
     const fakeToken = jwt.sign({ sub: 'user123', role: 'candidate' }, 'wrong_secret');
     const req = { headers: { authorization: `Bearer ${fakeToken}` } };
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    await protect(req, res, () => {
       nextCalled = true;
     });
 
@@ -84,7 +84,7 @@ describe('authMiddleware - protect', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('rejects request when token is expired', () => {
+  it('rejects request when token is expired', async () => {
     const expiredToken = jwt.sign(
       { sub: 'user123', role: 'candidate' },
       TEST_SECRET,
@@ -94,7 +94,7 @@ describe('authMiddleware - protect', () => {
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    await protect(req, res, () => {
       nextCalled = true;
     });
 
@@ -104,9 +104,9 @@ describe('authMiddleware - protect', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('accepts valid JWT, sets req.userId and req.user, and calls next()', () => {
+  it('accepts valid JWT, sets req.userId and req.user, and calls next()', async () => {
     const validToken = jwt.sign(
-      { sub: '507f1f77bcf86cd799439011', role: 'employer' },
+      { sub: '507f1f77bcf86cd799439011', role: 'employer', authVersion: 0 },
       TEST_SECRET,
       { expiresIn: '1h' }
     );
@@ -114,9 +114,19 @@ describe('authMiddleware - protect', () => {
     const res = createMockRes();
     let nextCalled = false;
 
-    protect(req, res, () => {
+    // Mock User.findById to return a user
+    const User = require('../src/models/User');
+    const originalFindById = User.findById;
+    User.findById = (id) => ({
+      select: () => Promise.resolve({ authVersion: 0, passwordChangedAt: null })
+    });
+
+    await protect(req, res, () => {
       nextCalled = true;
     });
+
+    // Restore original method
+    User.findById = originalFindById;
 
     assert.strictEqual(nextCalled, true);
     assert.strictEqual(req.userId, '507f1f77bcf86cd799439011');

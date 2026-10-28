@@ -6,6 +6,8 @@ import Profile from './components/Profile';
 import Navbar from './components/Navbar';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import Dashboard from './components/Dashboard';
 import HealthCard from './components/HealthCard';
 import ResumeBuilder from './components/ResumeBuilder';
@@ -21,6 +23,7 @@ import EmployerJobApplications from './components/EmployerJobApplications';
 const knownRoutes = [
   'login',
   'register',
+  'forgot-password',
   'dashboard',
   'profile',
   'resume',
@@ -34,9 +37,14 @@ function isEmployerApplicationsRoute(view) {
   return /^employer\/jobs\/[^/]+\/applications$/.test(view);
 }
 
+function isResetPasswordRoute(view) {
+  return /^reset-password(?:\?.*)?$/.test(view) || /^reset-password\/[^/]+$/.test(view);
+}
+
 function isValidRoute(view) {
   return (
     knownRoutes.includes(view) ||
+    isResetPasswordRoute(view) ||
     /^jobs\/[^/]+(?:\/apply)?$/.test(view) ||
     isEmployerApplicationsRoute(view) ||
     /^employer\/jobs\/[^/]+\/edit$/.test(view)
@@ -82,7 +90,7 @@ function MainApp() {
     /^jobs\/[^/]+\/apply$/.test(currentView);
 
   if (!loading) {
-    if (isAuthenticated && (currentView === 'login' || currentView === 'register')) {
+    if (isAuthenticated && (currentView === 'login' || currentView === 'register' || currentView === 'forgot-password')) {
       activeView = 'dashboard';
     } else if (
       !isAuthenticated &&
@@ -158,6 +166,8 @@ function MainApp() {
             <JobDetail />
           ) : activeView === 'profile' ? (
             <Profile />
+          ) : isResetPasswordRoute(activeView) ? (
+            <ResetPassword onSwitchToLogin={() => changeView('login')} />
           ) : (
             <Dashboard />
           )
@@ -167,7 +177,16 @@ function MainApp() {
               <RegisterForm onSwitchToLogin={() => changeView('login')} />
             )}
             {activeView === 'login' && (
-              <LoginForm onSwitchToRegister={() => changeView('register')} />
+              <LoginForm
+                onSwitchToRegister={() => changeView('register')}
+                onSwitchToForgotPassword={() => changeView('forgot-password')}
+              />
+            )}
+            {activeView === 'forgot-password' && (
+              <ForgotPassword onSwitchToLogin={() => changeView('login')} />
+            )}
+            {isResetPasswordRoute(activeView) && (
+              <ResetPassword onSwitchToLogin={() => changeView('login')} />
             )}
             {activeView === 'health' && (
               <div>

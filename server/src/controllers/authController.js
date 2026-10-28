@@ -1,6 +1,9 @@
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const emailService = require('../services/emailService');
+const { revokeUserSessions } = require('../middleware/authMiddleware');
 
 /**
  * @desc    Register a new user (candidate or employer)
@@ -166,7 +169,7 @@ const login = async (req, res, next) => {
     }
 
     // 3. Find user and explicitly select password field
-    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password +authVersion');
 
     // 4. Return generic 401 if user does not exist
     if (!user) {
@@ -198,7 +201,8 @@ const login = async (req, res, next) => {
     const token = jwt.sign(
       {
         sub: user._id.toString(),
-        role: user.role
+        role: user.role,
+        authVersion: user.authVersion || 0
       },
       secret,
       {
@@ -434,5 +438,290 @@ const updateMe = async (req, res, next) => {
   }
 };
 
+// In-memory rate limiting tracker for password reset requests: email -> timestamps[]
+const resetRateLimitTracker = new Map();
+
+/**
+ * Helper to check rate limiting for forgot password requests.
+ * Maximum 3 requests per 15 minutes per email address.
+ */
+function checkResetRateLimit(email) {
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const maxRequests = 3;
+
+  const history = resetRateLimitTracker.get(email) || [];
+  const recentHistory = history.filter(ts => now - ts < windowMs);
+
+  if (recentHistory.length >= maxRequests) {
+    return false;
+  }
+
+  recentHistory.push(now);
+  resetRateLimitTracker.set(email, recentHistory);
+  return true;
+}
+
+/**
+ * Clear the reset rate limit tracker (primarily for testing)
+ */
+function clearResetRateLimitTracker() {
+  resetRateLimitTracker.clear();
+}
+
+/**
+ * @desc    Request a password reset link
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Email is required'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 100) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // Rate limiting check
+    if (!checkResetRateLimit(normalizedEmail)) {
+      return res.status(429).json({
+        status: 'fail',
+        message: 'Too many password reset requests. Please try again later.'
+      });
+    }
+
+    const genericResponse = {
+      status: 'success',
+      message: 'If an account with that email exists, a password reset link has been sent.'
+    };
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Anti-enumeration: return identical response if account does not exist
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
+    // Generate cryptographically secure random reset token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    // Token expires in 20 minutes
+    const expiresInMinutes = 20;
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    // Build frontend reset URL
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const resetUrl = `${clientUrl}/#reset-password?token=${rawToken}`;
+
+    try {
+      await emailService.sendPasswordResetEmail({
+        toEmail: user.email,
+        userName: user.name,
+        resetUrl,
+        expiresInMinutes
+      });
+    } catch (emailErr) {
+      // Invalidate the unsent token so it does not linger
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        status: 'error',
+        message: 'Email service error. Unable to deliver password reset email. Please try again later.'
+      });
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reset password using valid reset token
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body || {};
+
+    if (!token || typeof token !== 'string' || !token.trim()) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Reset token is required'
+      });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Password is required'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Hash incoming token to match against database
+    const hashedToken = crypto.createHash('sha256').update(token.trim()).digest('hex');
+
+    // Atomic find-and-unset to enforce single-use and prevent concurrent reuse
+    const user = await User.findOneAndUpdate(
+      {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpire: { $gt: new Date() }
+      },
+      {
+        $unset: { resetPasswordToken: 1, resetPasswordExpire: 1 }
+      },
+      { new: false }
+    ).select('+password');
+
+    if (!user) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Password reset link is invalid or has expired.'
+      });
+    }
+
+    // Reject reuse of previous password
+    const isSamePassword = await bcrypt.compare(password, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'New password cannot be the same as the previous password'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const passwordChangedAt = new Date();
+
+    await User.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      passwordChangedAt,
+      $inc: { authVersion: 1 }
+    });
+
+    // Invalidate existing sessions
+    revokeUserSessions(user._id, passwordChangedAt.getTime());
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Password has been successfully reset. Please sign in with your new password.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Change password for authenticated user
+ * @route   POST /api/auth/change-password
+ * @access  Private (Candidate & Employer)
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Current password is required'
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'New password is required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'New password must be at least 6 characters long'
+      });
+    }
+
+    const user = await User.findById(req.userId).select('+password');
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found'
+      });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Reject reuse of existing password
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'New password cannot be the same as the current password'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const passwordChangedAt = new Date();
+
+    user.password = hashedPassword;
+    user.passwordChangedAt = passwordChangedAt;
+    await user.save();
+
+    // Invalidate existing sessions
+    revokeUserSessions(user._id, passwordChangedAt.getTime());
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Password changed successfully. Please sign in again.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Export controllers
-module.exports = { register, login, getMe, updateMe };
+module.exports = {
+  register,
+  login,
+  getMe,
+  updateMe,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  clearResetRateLimitTracker
+};

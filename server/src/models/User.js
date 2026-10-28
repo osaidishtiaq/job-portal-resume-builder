@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
+    // Authentication version – increments on password change/reset to invalidate old JWTs
+    authVersion: {
+      type: Number,
+      default: 0,
+      select: false
+    },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -26,6 +32,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Password hash is required'],
       minlength: [6, 'Password hash must be at least 6 characters'],
+      select: false
+    },
+    passwordChangedAt: {
+      type: Date,
+      select: false
+    },
+    resetPasswordToken: {
+      type: String,
+      select: false
+    },
+    resetPasswordExpire: {
+      type: Date,
       select: false
     },
     role: {

@@ -125,6 +125,21 @@ export const api = {
       request('/auth/me', {
         method: 'PATCH',
         body: JSON.stringify(profileData)
+      }),
+    forgotPassword: (email) =>
+      request('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      }),
+    resetPassword: ({ token, password }) =>
+      request('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, password })
+      }),
+    changePassword: ({ currentPassword, newPassword }) =>
+      request('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
       })
   },
 
