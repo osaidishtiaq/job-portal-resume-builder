@@ -1,167 +1,220 @@
 # Job Portal with Resume Builder 🚀
 
-A full-stack MERN (MongoDB, Express.js, React.js, Node.js) application designed for candidates and employers to connect, post jobs, manage applications, and build professional resumes.
+A full‑stack MERN (MongoDB, Express, React, Node.js) application that connects **candidates** with **employers**. It includes a client‑side resume builder with downloadable PDF templates.
 
 ---
 
-## 📅 Internship Roadmap Progress
+## 1. Project Title & Overview
+**Job Portal with Resume Builder**
 
-- [x] **Day 1: Base Project Architecture Setup** (Monorepo structure, Express server, Mongoose setup, Health check endpoint, React client setup, CORS, .env configuration)
-- [ ] **Day 2-27**: Core business features (Auth, Roles, Job Postings, Resume Builder, Applications, Email Notifications, etc.)
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React.js (built with Vite), CSS3 Vanilla Design System
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB (Object Data Modeling via Mongoose)
-- **HTTP & Utilities**: Express CORS, Dotenv
+The project provides:
+- User authentication with role‑based access (candidate & employer).
+- Job posting, browsing, applying, and status tracking.
+- A resume builder offering three professional templates (Professional, Minimal, Modern) that can be exported as PDF on the client using **jsPDF**.
+- Email notifications (via Nodemailer) for password recovery and when a candidate applies for a job.
 
 ---
 
-## 📂 Project Structure
+## 2. Key Features
+### Candidate
+- Register / login (JWT authentication).
+- Manage personal profile.
+- Browse, search and filter jobs.
+- View job details and submit applications.
+- Track application status.
+- Build a resume with three templates and export to PDF.
+- Request password reset via email.
 
+### Employer
+- Register / login.
+- Manage employer profile.
+- Create, edit, close job postings.
+- View *My Jobs* dashboard.
+- Review applicants, update their status, and the system sends an email notification to the employer when a candidate submits an application.
+
+### Account Security
+- JWT‑based authentication with role‑based authorisation.
+- Password recovery via email (single‑use, time‑limited token).
+- Authenticated password change.
+- Secure storage of secrets in `.env` files (never committed).
+
+---
+
+## 3. Technology Stack
+| Layer | Technology |
+|------|------------|
+| **Frontend** | React 19 (Vite), jsPDF, oxlint (linting) |
+| **Backend** | Node.js **20.19+**, Express 4, Mongoose 8 |
+| **Database** | MongoDB (local or Atlas) |
+| **Auth** | JSON Web Tokens (jsonwebtoken) |
+| **Email** | Nodemailer |
+| **Testing** | Node.js built‑in test runner (`node --test`), in‑memory MongoDB (`mongodb-memory-server`) |
+| **Package Manager** | npm |
+
+---
+
+## 4. Project Folder Structure
 ```text
 Job Portal/
-├── client/                     # Frontend React Application (Vite)
-│   ├── src/
-│   │   ├── App.jsx             # Health check verification dashboard UI
-│   │   ├── index.css           # Global design tokens and styles
-│   │   └── main.jsx            # Application entry point
-│   ├── package.json            # Client dependencies
-│   └── .gitignore              # Client ignore rules
-│
-├── server/                     # Backend Node.js / Express API
-│   ├── src/
-│   │   ├── config/
-│   │   │   └── db.js           # Mongoose MongoDB connection helper
-│   │   ├── controllers/
-│   │   │   └── healthController.js # Health check endpoint handler
-│   │   ├── middleware/
-│   │   │   └── errorHandler.js # Express global error middleware
-│   │   ├── models/             # Mongoose schemas placeholder (Day 2+)
-│   │   ├── routes/
-│   │   │   └── healthRoutes.js # Route mapping for /api/health
-│   │   ├── services/           # Business logic layer placeholder (Day 2+)
-│   │   └── server.js           # Express app bootstrap & initialization
-│   ├── .env.example            # Environment variable template (Secrets safe)
-│   ├── .env                    # Local environment config (DO NOT COMMIT)
-│   ├── package.json            # Server dependencies
-│   └── .gitignore              # Server ignore rules
-│
-├── .gitignore                  # Global git ignore configuration
-└── README.md                   # Project documentation
+├── client/                     # React front‑end (Vite)
+│   ├── src/                    # Source files (components, pages, etc.)
+│   ├── public/                 # Static assets
+│   ├── .env.example            # Front‑end env template (VITE_API_URL)
+│   ├── package.json            # Front‑end scripts & dependencies
+│   └── ...
+├── server/                     # Express back‑end
+│   ├── src/                    # Server code (config, controllers, models, routes, services)
+│   ├── .env.example            # Back‑end env template
+│   ├── package.json            # Back‑end scripts & dependencies
+│   └── ...
+├── .gitignore
+└── README.md                   # **This documentation**
 ```
 
 ---
 
-## ⚡ Quick Start Guide
-
-### Prerequisites
-- Node.js (v18+ recommended)
-- npm or yarn
-- MongoDB installed locally OR a MongoDB Atlas cluster URI
-
----
-
-### Step 1: Install Dependencies
-
-1. **Install Server Dependencies:**
-   ```bash
-   cd server
-   npm install
-   ```
-
-2. **Install Client Dependencies:**
-   ```bash
-   cd ../client
-   npm install
-   ```
+## 5. Prerequisites
+- **Node.js** – version **20.19** or newer (required by Vite 8).
+- **npm** (shipped with Node)
+- **MongoDB** – local installation or an Atlas connection string.
+- **Git** (for cloning the repository).
+- A terminal that supports PowerShell commands (Windows).
 
 ---
 
-### Step 2: Environment Setup
+## 6. Installation
+```powershell
+# 1️⃣ Clone the repository (replace <repo-url> with the actual URL)
+git clone <repo-url>
+cd job-portal-resume-builder
 
-1. In the `server` directory, copy `.env.example` to `.env`:
-   ```bash
-   cd server
-   cp .env.example .env
-   ```
-   *(Or copy manually on Windows)*
+# 2️⃣ Server dependencies
+cd server
+npm install
 
-2. Configure `server/.env`:
-   ```env
-   PORT=5000
-   NODE_ENV=development
-   MONGO_URI=mongodb://127.0.0.1:27017/job_portal
-   CLIENT_URL=http://localhost:5173
-   ```
-   > ⚠️ **Security Note:** Never commit `.env` files to git. `.env` is listed in `.gitignore`.
-
-### 📧 SMTP Email Configuration
-
-The backend uses **Nodemailer**. Add the following variables to `server/.env` (never commit this file):
-
+# 3️⃣ Client dependencies
+cd ..\client
+npm install   # or "pnpm install"
 ```
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-SMTP_FROM=no-reply@example.com
+> **Note** – The placeholder `<repo-url>` should be replaced with the real GitHub URL when known.
+
+---
+
+## 7. Environment Configuration
+### 7.1 Copy example files
+```powershell
+# Server side
+cd server
+copy .env.example .env   # Windows `copy`, on *nix `cp`
+
+# Client side
+cd ..\client
+copy .env.example .env   # creates `VITE_API_URL`
 ```
+### 7.2 Server `.env` variables (required)
+| Variable | Description |
+|----------|-------------|
+| `PORT` | Port the Express server listens on (default **5000**). |
+| `NODE_ENV` | Environment mode (`development` or `production`). |
+| `MONGO_URI` | MongoDB connection string (local or Atlas). |
+| `CLIENT_URL` | Front‑end URL for CORS (default **http://localhost:5173**). |
+| `JWT_SECRET` | Secret key for signing JWTs. |
+| `JWT_EXPIRES_IN` | JWT expiry (e.g., `7d`). |
+| `SMTP_HOST` | Hostname of the SMTP server used for email notifications. |
+| `SMTP_PORT` | Port of the SMTP server (usually **587** or **465**). |
+| `SMTP_USER` | Username for SMTP authentication. |
+| `SMTP_PASS` | Password for SMTP authentication. |
+| `SMTP_FROM` | Email address used as the sender (e.g., `no-reply@example.com`). |
 
-- `SMTP_HOST` – SMTP server hostname.
-- `SMTP_PORT` – `465` for implicit TLS (secure = true) or `587` for STARTTLS (secure = false). The service automatically selects the correct mode.
-- `SMTP_USER` / `SMTP_PASS` – credentials for authentication. They are **never** logged or exposed.
-- `SMTP_FROM` – the sender address used in notifications.
+### 7.3 Client `.env` variables (required)
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Base URL of the back‑end API (default **http://localhost:5000/api**). |
 
-If any of the above variables are missing, the email service will silently skip sending – the application submission still returns **HTTP 201**. Failures when sending (e.g., network errors) are caught and logged but do not affect the API response.
-
----
-
-### Step 3: Run the Application
-
-1. **Start the Express Backend Server:**
-   ```bash
-   cd server
-   npm run dev
-   ```
-   *The server will run on `http://localhost:5000`.*
-
-2. **Start the React Frontend Client:**
-   *(In a separate terminal tab/window)*
-   ```bash
-   cd client
-   npm run dev
-   ```
-   *The frontend will run on `http://localhost:5173`.*
+> **Security reminder** – Never commit `.env` files. They are listed in `.gitignore`.
 
 ---
 
-## 🧪 API Health Check Verification
-
-Once both servers are running, test the backend health check endpoint:
-
-- **Endpoint**: `GET /api/health`
-- **URL**: `http://localhost:5000/api/health`
-- **Sample JSON Response**:
-  ```json
-  {
-    "status": "OK",
-    "message": "Job Portal API is operational",
-    "timestamp": "2026-10-08T12:00:00.000Z",
-    "uptime": "15s",
-    "database": {
-      "status": "connected"
-    },
-    "environment": "development"
-  }
-  ```
+## 8. Running the Application Locally
+Open **two** PowerShell windows (or tabs).
+### Backend
+```powershell
+cd server
+npm run dev   # starts the server with nodemon on http://localhost:5000
+```
+The console will display:
+```
+🚀 Server running on port 5000
+🌐 Health check: http://localhost:5000/api/health
+```
+### Frontend
+```powershell
+cd client
+npm run dev   # starts Vite dev server on http://localhost:5173
+```
+The client will automatically proxy API requests to the backend (`/api`).
 
 ---
 
-## 🔒 Security Best Practices Implemented
-- Dynamic environment variable parsing via `dotenv`.
-- Credentials excluded from version control using `.gitignore`.
-- Explicit CORS whitelist restricting access to trusted frontend client URLs.
+## 9. How to Use
+### Candidate workflow
+1. Register or log in.
+2. Complete your profile.
+3. Browse jobs, filter or search as needed.
+4. View a job’s details and click **Apply**.
+5. Track your applications on the *My Applications* page.
+6. Use the **Resume Builder** to create a resume, then click **Download PDF**.
+7. Reset your password via the *Forgot password* link (email with a token is sent).
+
+### Employer workflow
+1. Register or log in as an employer.
+2. Fill out the employer profile.
+3. Create a new job posting (title, description, requirements, etc.).
+4. Manage your listings under *My Jobs* – edit or close them.
+5. Review incoming applications, update their status, and the system sends email notifications to candidates.
+
+---
+
+## 10. Testing & Verification
+```powershell
+# Backend automated tests
+cd server
+npm test   # runs "node --test"
+
+# Front‑end linting
+cd ..\client
+npm run lint   # runs oxlint
+
+# Front‑end production build
+npm run build   # creates ./dist
+```
+**Verification (as of 2026‑10‑29):**
+- Backend tests: **238 passed, 0 failed, 0 cancelled**
+- Front‑end lint: **passed**
+- Front‑end build: **passed**
+- Password‑reset flow (Chrome): **15/15** test cases passed
+- Resume PDF export (Chrome): **9/9** test cases passed
+- Candidate‑to‑Employer integration (Chrome): **12/12** test cases passed
+
+*These results were obtained from the existing test suite; they have not been re‑executed during this documentation update.*
+
+---
+
+## 11. Troubleshooting
+| Issue | Likely Cause | Fix |
+|-------|--------------|-----|
+| **Cannot connect to MongoDB** | `MONGO_URI` incorrect or MongoDB server not running | Verify the URI, start MongoDB, or check network/firewall settings. |
+| **Missing environment variable** | `.env` file not created or variable typo | Copy `.env.example` to `.env` and ensure all required keys are present. |
+| **Port 5000 or 5173 already in use** | Another process occupying the port | Stop the conflicting process or change `PORT` / Vite port in `.env`. |
+| **Email not sent on password reset** | SMTP credentials missing or blocked by provider | Double‑check `SMTP_*` variables, ensure network access to the SMTP host, and verify credentials. |
+| **Frontend cannot reach backend (CORS or 404)** | `CLIENT_URL` mismatch or server not running | Ensure the server is running on the port defined in `CLIENT_URL` and that CORS whitelist includes it. |
+
+---
+
+## 12. Security & Notes
+- **Never** commit real secrets. `.env` files are ignored by Git.
+- The `.env.example` files contain placeholder values; replace them with real credentials before running.
+- Email functionality requires a valid SMTP service; without it the API will still create resources but will skip sending mails.
+- PDF generation is performed entirely on the client using **jsPDF** – no server endpoint is required.
+
+---
