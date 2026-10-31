@@ -541,6 +541,14 @@ const forgotPassword = async (req, res, next) => {
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
 
+      // Log safe diagnostic info without leaking sensitive data
+      const safeInfo = {
+        code: emailErr.code,
+        command: emailErr.command,
+        responseCode: emailErr.responseCode
+      };
+      console.error('[ForgotPassword] Email error:', safeInfo);
+
       return res.status(500).json({
         status: 'error',
         message: 'Email service error. Unable to deliver password reset email. Please try again later.'

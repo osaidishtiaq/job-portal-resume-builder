@@ -27,6 +27,9 @@ function authReq(user) {
 }
 
 before(async () => {
+  const path = require('path');
+  // Force mongodb-memory-server to use a known, writable directory inside the repo.
+  process.env.MONGOMS_DOWNLOAD_DIR = path.join(__dirname, '..', '.mongo-binaries');
   const { MongoMemoryServer } = require('mongodb-memory-server');
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
@@ -34,6 +37,15 @@ before(async () => {
 });
 
 after(async () => {
+  // Defensive guard – the connection may be missing if the `before` hook failed.
+  if (mongoose.connection?.readyState) {
+    await mongoose.connection.db.dropDatabase();
+  }
+  await mongoose.disconnect();
+  if (mongoServer) {
+    await mongoServer.stop();
+  }
+});
   await mongoose.connection.db.dropDatabase();
   await mongoose.disconnect();
   await mongoServer.stop();
@@ -43,6 +55,9 @@ describe('Profile Controller', () => {
   let candidateUser, employerUser;
 
   before(async () => {
+  const path = require('path');
+  // Force mongodb-memory-server to use a known, writable directory inside the repo.
+  process.env.MONGOMS_DOWNLOAD_DIR = path.join(__dirname, '..', '.mongo-binaries');
     candidateUser = await User.create({
       name: 'Candidate One',
       email: 'candidate@example.com',
