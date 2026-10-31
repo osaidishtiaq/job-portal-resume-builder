@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const https = require('https');
 
 /**
  * Build a Nodemailer transporter from environment variables.
@@ -36,6 +37,57 @@ function getTransporter() {
   });
 }
 
+// Brevo transactional email helper
+function sendViaBrevo({ to, subject, text, html }) {
+  return new Promise((resolve, reject) => {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      return reject(new Error('BREVO_API_KEY not set'));
+    }
+    const payload = {
+      sender: { email: process.env.SMTP_FROM },
+      to: [{ email: to }],
+      subject,
+      textContent: text,
+      htmlContent: html
+    };
+    const data = JSON.stringify(payload);
+    const options = {
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve();
+        } else {
+          let errMsg = `Brevo API error ${res.statusCode}`;
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.code) errMsg += `: ${parsed.code}`;
+          } catch (_) {}
+          reject(new Error(errMsg));
+        }
+      });
+    });
+    // 15‑second timeout – abort request on timeout
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('Brevo request timeout'));
+    });
+    req.on('error', (e) => reject(e));
+    req.write(data);
+    req.end();
+  });
+}
+
 /**
  * Send a plain‑text notification to the employer when a new application arrives.
  *
@@ -48,11 +100,6 @@ function getTransporter() {
  */
 async function sendApplicationNotification({ employerEmail, employerName, jobTitle, candidateName, applicationId }) {
   const transporter = getTransporter();
-  if (!transporter) {
-    // SMTP not configured – silently ignore.
-    return;
-  }
-
   const from = process.env.SMTP_FROM;
   const subject = `New application for "${jobTitle}"`;
   const text = `Hello${employerName ? ' ' + employerName : ''},\n\n` +
@@ -62,20 +109,24 @@ async function sendApplicationNotification({ employerEmail, employerName, jobTit
     `You can review applications via the employer dashboard at /employer/jobs/${applicationId}\n\n` +
     `Best regards,\nJob Portal System`;
 
-  const mailOptions = {
-    from,
-    to: employerEmail,
-    subject,
-    text
-  };
+  // Prefer Brevo API if configured
+  if (process.env.BREVO_API_KEY) {
+    await sendViaBrevo({ to: employerEmail, subject, text, html: undefined });
+    return;
+  }
 
-  // Send mail – any error is propagated to caller so they can handle it.
+  if (!transporter) {
+    // SMTP not configured – silently ignore.
+    return;
+  }
+
+  const mailOptions = { from, to: employerEmail, subject, text };
   await transporter.sendMail(mailOptions);
 }
 
 /**
  * Send a password reset email with the secure reset URL.
- * Throws an error if SMTP is not configured or if email delivery fails.
+ * Throws an error if neither SMTP nor Brevo API is configured or if email delivery fails.
  *
  * @param {Object} params
  * @param {string} params.toEmail - Recipient email address.
@@ -85,8 +136,8 @@ async function sendApplicationNotification({ employerEmail, employerName, jobTit
  */
 async function sendPasswordResetEmail({ toEmail, userName, resetUrl, expiresInMinutes = 20 }) {
   const transporter = getTransporter();
-  if (!transporter) {
-    throw new Error('Email service is not configured (SMTP credentials missing)');
+  if (!transporter && !process.env.BREVO_API_KEY) {
+    throw new Error('SMTP credentials missing');
   }
 
   const from = process.env.SMTP_FROM;
@@ -114,14 +165,17 @@ async function sendPasswordResetEmail({ toEmail, userName, resetUrl, expiresInMi
     </div>
   `;
 
-  const mailOptions = {
-    from,
-    to: toEmail,
-    subject,
-    text,
-    html
-  };
+  // Prefer Brevo API if configured
+  if (process.env.BREVO_API_KEY) {
+    await sendViaBrevo({ to: toEmail, subject, text, html });
+    return;
+  }
 
+  if (!transporter) {
+    throw new Error('Email service is not configured (SMTP credentials missing)');
+  }
+
+  const mailOptions = { from, to: toEmail, subject, text, html };
   await transporter.sendMail(mailOptions);
 }
 

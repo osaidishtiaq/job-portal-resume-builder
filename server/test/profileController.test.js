@@ -30,6 +30,8 @@ before(async () => {
   const path = require('path');
   // Force mongodb-memory-server to use a known, writable directory inside the repo.
   process.env.MONGOMS_DOWNLOAD_DIR = path.join(__dirname, '..', '.mongo-binaries');
+  // Ensure the working directory is the project root where package.json resides.
+  process.chdir(path.join(__dirname, '..'));
   const { MongoMemoryServer } = require('mongodb-memory-server');
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
@@ -46,10 +48,7 @@ after(async () => {
     await mongoServer.stop();
   }
 });
-  await mongoose.connection.db.dropDatabase();
-  await mongoose.disconnect();
-  await mongoServer.stop();
-});
+
 
 describe('Profile Controller', () => {
   let candidateUser, employerUser;
