@@ -84,8 +84,8 @@ Job Portal/
 
 ## 6. Installation
 ```powershell
-# 1️⃣ Clone the repository (replace <repo-url> with the actual URL)
-git clone <repo-url>
+# 1️⃣ Clone the repository
+git clone https://github.com/osaidishtiaq/job-portal-resume-builder
 cd job-portal-resume-builder
 
 # 2️⃣ Server dependencies
@@ -135,6 +135,18 @@ copy .env.example .env   # creates `VITE_API_URL`
 
 ---
 
+
+### Production Transactional Email (Brevo)
+
+Production email delivery uses the Brevo HTTPS transactional API when
+`BREVO_API_KEY` is configured on the backend.
+
+- Set `BREVO_API_KEY` in Render's backend environment variables.
+- Set `SMTP_FROM` to a sender email address verified in Brevo.
+- Ensure the API key has permission to send transactional emails.
+- If `BREVO_API_KEY` is absent, the application falls back to SMTP.
+- Do not commit API keys, SMTP passwords, or `.env` files.
+
 ## 8. Running the Application Locally
 Open **two** PowerShell windows (or tabs).
 ### Backend
@@ -156,7 +168,17 @@ The client will automatically proxy API requests to the backend (`/api`).
 
 ---
 
-## 9. How to Use
+## 9. Deployment
+
+The application is deployed using Vercel for the frontend and Render for the backend.
+
+- **Frontend:** https://job-portal-resume-builder-tau.vercel.app
+- **Backend health endpoint:** https://job-portal-mentor-tech-api.onrender.com/api/health
+- **Database:** MongoDB Atlas
+- **Transactional email:** Brevo HTTPS API
+
+---
+## 10. How to Use
 ### Candidate workflow
 1. Register or log in.
 2. Complete your profile.
@@ -175,7 +197,7 @@ The client will automatically proxy API requests to the backend (`/api`).
 
 ---
 
-## 10. Testing & Verification
+## 11. Testing & Verification
 ```powershell
 # Backend automated tests
 cd server
@@ -189,7 +211,7 @@ npm run lint   # runs oxlint
 npm run build   # creates ./dist
 ```
 **Verification (as of 2026‑10‑29):**
-- Backend tests: **238 passed, 0 failed, 0 cancelled**
+- Backend tests: **243 passed, 0 failed, 0 cancelled**
 - Front‑end lint: **passed**
 - Front‑end build: **passed**
 - Password‑reset flow (Chrome): **15/15** test cases passed
@@ -200,18 +222,31 @@ npm run build   # creates ./dist
 
 ---
 
-## 11. Troubleshooting
-| Issue | Likely Cause | Fix |
-|-------|--------------|-----|
-| **Cannot connect to MongoDB** | `MONGO_URI` incorrect or MongoDB server not running | Verify the URI, start MongoDB, or check network/firewall settings. |
-| **Missing environment variable** | `.env` file not created or variable typo | Copy `.env.example` to `.env` and ensure all required keys are present. |
-| **Port 5000 or 5173 already in use** | Another process occupying the port | Stop the conflicting process or change `PORT` / Vite port in `.env`. |
-| **Email not sent on password reset** | SMTP credentials missing or blocked by provider | Double‑check `SMTP_*` variables, ensure network access to the SMTP host, and verify credentials. |
-| **Frontend cannot reach backend (CORS or 404)** | `CLIENT_URL` mismatch or server not running | Ensure the server is running on the port defined in `CLIENT_URL` and that CORS whitelist includes it. |
+## 12. Troubleshooting
+## 12. Troubleshooting
+
+| Issue | Possible Cause | Solution |
+|---|---|---|
+| Backend fails to start | Missing dependencies or environment variables | Run `npm install` inside `server` and verify the `.env` configuration. |
+| MongoDB connection fails | Invalid `MONGO_URI` or Atlas network restrictions | Check the connection string, database credentials, and MongoDB Atlas network access settings. |
+| Frontend cannot connect to backend | Incorrect `VITE_API_URL`, CORS configuration, or backend not running | Verify the backend URL, `CLIENT_URL`, and that the API server is running. |
+| Port already in use | Another process is using port 5000 or 5173 | Stop the conflicting process or configure a different port. |
+| Registration or login fails | Incorrect credentials, missing JWT configuration, or backend error | Verify the request details, `JWT_SECRET`, and backend logs. |
+| Password reset email is not received | Invalid Brevo API key, unverified sender, or missing permissions | Verify `BREVO_API_KEY`, `SMTP_FROM`, and transactional email permissions. Check the spam folder and backend logs. |
+| Resume PDF cannot be downloaded | Browser download restrictions or PDF generation error | Allow browser downloads, check the browser console, and retry. |
+| Render backend responds slowly | Service cold start or temporary hosting delay | Wait briefly and retry the request. Check Render logs if the issue persists. |
+
+### Additional Setup Tips
+
+- Use Node.js and npm versions compatible with the project's dependencies.
+- Install frontend and backend dependencies separately using `npm install`.
+- Keep `.env` files private and never commit API keys, passwords, or database credentials.
+- Restart development servers after changing environment variables.
+- Run backend tests with `npm test` and frontend checks with `npm run lint` and `npm run build` from their respective directories.
 
 ---
 
-## 12. Security & Notes
+## 13. Security & Notes
 - **Never** commit real secrets. `.env` files are ignored by Git.
 - The `.env.example` files contain placeholder values; replace them with real credentials before running.
 - Email functionality requires a valid SMTP service; without it the API will still create resources but will skip sending mails.
